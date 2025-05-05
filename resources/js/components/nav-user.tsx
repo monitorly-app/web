@@ -1,16 +1,28 @@
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
 import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { type SharedData } from '@/types';
-import { usePage } from '@inertiajs/react';
-import { ChevronsUpDown } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { ChevronsUpDown, LayoutDashboard, UserCog } from 'lucide-react';
 
 export function NavUser() {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, admin_mode } = usePage<SharedData>().props;
     const { state } = useSidebar();
     const isMobile = useIsMobile();
+    const isAdmin = auth.user.role_id === 1;
+
+    const handleSwitchAccount = () => {
+        router.post(route('admin.switch-account'));
+    };
 
     return (
         <SidebarMenu>
@@ -28,6 +40,28 @@ export function NavUser() {
                         side={isMobile ? 'bottom' : state === 'collapsed' ? 'left' : 'bottom'}
                     >
                         <UserMenuContent user={auth.user} />
+
+                        {/* Admin account switcher - only show for admins */}
+                        {isAdmin && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuGroup>
+                                    <DropdownMenuItem onClick={handleSwitchAccount}>
+                                        {admin_mode ? (
+                                            <>
+                                                <UserCog className="mr-2 size-4" />
+                                                Switch to Personal Account
+                                            </>
+                                        ) : (
+                                            <>
+                                                <LayoutDashboard className="mr-2 size-4" />
+                                                Switch to Admin Account
+                                            </>
+                                        )}
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>

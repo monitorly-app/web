@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
@@ -19,8 +20,25 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        if ($role === 'admin' && !$request->user()->isAdmin()) {
-            abort(403, 'Unauthorized action.');
+        if ($role === 'admin') {
+            // Si l'utilisateur n'est pas admin, accès interdit
+            if (!$request->user()->isAdmin()) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            // Si l'admin est en mode personnel, rediriger vers le dashboard utilisateur
+            if (Session::get('admin_mode', true) === false) {
+                return redirect()->route('user.dashboard')
+                    ->with('info', 'You are in personal account mode. Switch to admin mode to access admin features.');
+            }
+        }
+
+        // Pour les routes utilisateur, si l'utilisateur est un admin, vérifier s'il est en mode admin
+        if ($role === 'user' && $request->user()->isAdmin() && Session::get('admin_mode', true) === true) {
+            // L'admin est en mode admin mais essaie d'accéder à une route utilisateur
+            // Rediriger vers le dashboard admin
+            return redirect()->route('admin.dashboard')
+                ->with('info', 'You are in admin mode. Switch to personal account to access user features.');
         }
 
         return $next($request);

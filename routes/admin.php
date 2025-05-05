@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminAccountController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\RoleController;
@@ -20,3 +21,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->group(fu
     // Plans management
     Route::resource('plans', PlanController::class);
 });
+
+Route::post('/switch-account', [AdminAccountController::class, 'switchAccount'])
+    ->name('admin.switch-account')
+    ->middleware('auth');
