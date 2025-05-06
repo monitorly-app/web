@@ -33,10 +33,20 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()->role_id === 'admin') {
+        // Check role ID (note: it should be compared as integer, not string)
+        if ($request->user()->role_id === 1) {
             return redirect()->intended(route('admin.dashboard', absolute: false));
         } else {
-            return redirect()->intended(route('user.dashboard', absolute: false));
+            // For normal users, check if they have projects
+            $user = $request->user();
+            $lastProject = $user->projects()->latest()->first();
+
+            if ($lastProject) {
+                return redirect()->intended(route('projects.dashboard', $lastProject->id, absolute: false));
+            } else {
+                // No projects yet, redirect to project creation
+                return redirect()->intended(route('projects.create', absolute: false));
+            }
         }
     }
 

@@ -86,4 +86,34 @@ class User extends Authenticatable
 
         return $this->name;
     }
+
+    /**
+     * Projets dont l'utilisateur est propriétaire
+     */
+    public function ownedProjects()
+    {
+        return $this->hasMany(Project::class, 'owner_id');
+    }
+
+    /**
+     * Tous les projets auxquels l'utilisateur a accès
+     * (y compris ceux dont il est propriétaire)
+     */
+    public function projects()
+    {
+        return $this->ownedProjects()
+            ->orWhereHas('members', function ($query) {
+                $query->where('user_id', $this->id);
+            });
+    }
+
+    /**
+     * Projets dont l'utilisateur est membre
+     */
+    public function memberProjects()
+    {
+        return $this->belongsToMany(Project::class, 'project_user')
+            ->withPivot('project_role_id')
+            ->withTimestamps();
+    }
 }

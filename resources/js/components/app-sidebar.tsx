@@ -16,9 +16,10 @@ import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { BookOpen, Folder, LayoutGrid, Package, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
+import { ProjectSelector } from './project-selector';
 
 export function AppSidebar() {
-    const { auth, admin_mode } = usePage<SharedData>().props;
+    const { auth, admin_mode, projects, currentProject } = usePage<SharedData>().props;
     const isAdmin = auth.user.role_id === 1 && admin_mode === true;
 
     const mainNavItems: NavItem[] = [
@@ -79,6 +80,8 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+
+                {!isAdmin && <ProjectSelector currentProject={currentProject} projects={projects} user={auth.user} />}
 
                 {/* Admin Navigation Section - only shown in admin mode */}
                 {isAdmin && adminNavItems.length > 0 && (

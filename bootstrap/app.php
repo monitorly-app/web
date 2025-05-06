@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => CheckRole::class,
+            'project.access' => \App\Http\Middleware\ProjectAccess::class,
+            'project.owner' => \App\Http\Middleware\ProjectOwner::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

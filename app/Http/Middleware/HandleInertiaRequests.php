@@ -39,6 +39,29 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        // Récupérer les projets de l'utilisateur s'il est connecté
+        $projects = [];
+        $currentProject = null;
+
+        if ($request->user()) {
+            $projects = $request->user()->projects()
+                ->select('id', 'name', 'owner_id')
+                ->with(['plan:id,name'])
+                ->get();
+
+            // Si un projet est actif dans la requête
+            if ($request->route('project')) {
+                $currentProject = $request->route('project');
+            }
+            // Sinon, récupérer le dernier projet utilisé
+            else if (session()->has('last_project_id')) {
+                $lastProjectId = session('last_project_id');
+                $currentProject = $request->user()->projects()
+                    ->where('id', $lastProjectId)
+                    ->first();
+            }
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -47,6 +70,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'admin_mode' => session('admin_mode', true),
+            'projects' => $projects,
+            'currentProject' => $currentProject,
             'ziggy' => fn(): array => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

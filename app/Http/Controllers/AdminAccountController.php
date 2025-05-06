@@ -26,8 +26,18 @@ class AdminAccountController extends Controller
         // Redirect to appropriate dashboard
         if ($currentMode) {
             // Was in admin mode, now switching to personal
-            return redirect()->route('user.dashboard')
-                ->with('success', 'Switched to personal account');
+            // Check if user has any projects
+            $lastProject = $user->projects()->latest()->first();
+
+            if ($lastProject) {
+                // Redirect to the project dashboard if a project exists
+                return redirect()->route('projects.dashboard', $lastProject)
+                    ->with('success', 'Switched to personal account');
+            } else {
+                // If no projects exist, redirect to create project page
+                return redirect()->route('projects.create')
+                    ->with('success', 'Switched to personal account. Create your first project to get started.');
+            }
         } else {
             // Was in personal mode, now switching to admin
             return redirect()->route('admin.dashboard')
