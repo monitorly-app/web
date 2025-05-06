@@ -25,7 +25,7 @@ export function AppSidebar() {
     const mainNavItems: NavItem[] = [
         {
             title: 'Dashboard',
-            href: isAdmin ? '/admin/dashboard' : '/user/dashboard',
+            href: isAdmin ? '/admin/dashboard' : currentProject ? `/projects/${currentProject.id}` : '/projects/select',
             icon: LayoutGrid,
         },
     ];
@@ -70,7 +70,10 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={isAdmin ? '/admin/dashboard' : '/user/dashboard'} prefetch>
+                            <Link
+                                href={isAdmin ? '/admin/dashboard' : currentProject ? `/projects/${currentProject.id}` : '/projects/select'}
+                                prefetch
+                            >
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>

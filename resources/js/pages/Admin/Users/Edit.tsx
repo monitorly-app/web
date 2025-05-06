@@ -63,7 +63,7 @@ export default function EditUser({ user, roles, plans }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        patch(route('users.update', user.id));
+        patch(route('admin.users.update', user.id));
     };
 
     return (

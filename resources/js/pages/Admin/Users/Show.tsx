@@ -66,13 +66,13 @@ export default function ShowUser({ user }: Props) {
                     <h1 className="text-2xl font-semibold">User Details</h1>
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>
-                            <Link href={route('users.index')}>
+                            <Link href={route('admin.users.index')}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Users
                             </Link>
                         </Button>
                         <Button asChild>
-                            <Link href={route('users.edit', user.id)}>
+                            <Link href={route('admin.users.edit', user.id)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit User
                             </Link>

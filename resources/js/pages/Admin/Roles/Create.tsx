@@ -31,7 +31,7 @@ export default function CreateRole() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(route('roles.store'));
+        post(route('admin.roles.store'));
     };
 
     return (

@@ -50,7 +50,7 @@ export default function EditPlan({ plan }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        patch(route('plans.update', plan.id));
+        patch(route('admin.plans.update', plan.id));
     };
 
     return (

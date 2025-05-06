@@ -5,6 +5,8 @@ use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectDashboardController;
+use App\Http\Controllers\ProjectInvitationController;
+use App\Http\Controllers\ProjectMemberController;
 use App\Http\Controllers\ProjectSettingsController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
@@ -22,76 +24,90 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Home route - redirects to the appropriate dashboard based on user role
 Route::get('/', function () {
     if (auth()->check()) {
-        if (auth()->user()->isAdmin()) {
+        if (auth()->user()->isAdmin() && session('admin_mode', true)) {
             return redirect()->route('admin.dashboard');
         }
 
-        // Si l'utilisateur a au moins un projet, rediriger vers le dernier projet utilisé
+        // For regular users or admins in personal mode
+        // If the user has at least one project, redirect to the last project used
         $lastProject = auth()->user()->projects()->latest()->first();
         if ($lastProject) {
             return redirect()->route('projects.dashboard', $lastProject);
         }
 
-        // Sinon, rediriger vers la page de création de projet
+        // Otherwise, redirect to the project creation page
         return redirect()->route('projects.create');
     }
     return redirect()->route('login');
 })->name('home');
 
-// Routes accessibles aux utilisateurs authentifiés - gestion des projets
+// Routes accessible to authenticated users
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Gestion des projets (sans contexte de projet)
-    Route::prefix('projects')->group(function () {
-        Route::get('/create', [ProjectController::class, 'create'])->name('projects.create');
-        Route::post('/', [ProjectController::class, 'store'])->name('projects.store');
-        Route::get('/select', [ProjectController::class, 'select'])->name('projects.select');
+    // User dashboard - for non-project specific user functions
+    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+
+    // Project selection and creation (no project context)
+    Route::prefix('projects')->name('projects.')->group(function () {
+        Route::get('/create', [ProjectController::class, 'create'])->name('create');
+        Route::post('/', [ProjectController::class, 'store'])->name('store');
+        Route::get('/select', [ProjectController::class, 'select'])->name('select');
     });
 
-    // Routes avec contexte de projet
-    Route::middleware(['project.access'])->prefix('projects/{project}')->group(function () {
-        // Dashboard du projet
-        // Ajouter cette ligne pour traiter /projects/{uuid} sans slash final
-        Route::get('', [ProjectDashboardController::class, 'index'])->name('projects.dashboard');
+    // Project-specific routes (with project context)
+    Route::prefix('projects/{project}')->name('projects.')->middleware(['project.access'])->group(function () {
+        // Dashboard
+        Route::get('/', [ProjectDashboardController::class, 'index'])->name('dashboard');
 
-        // Garder celle-ci aussi pour la cohérence avec les autres routes
-        Route::get('/', [ProjectDashboardController::class, 'index']);
-
-        // Paramètres du projet (accessibles uniquement au propriétaire et admin du projet)
-        Route::middleware(['project.owner'])->group(function () {
-            Route::get('/settings', [ProjectSettingsController::class, 'index'])->name('projects.settings');
-            Route::put('/settings', [ProjectSettingsController::class, 'update'])->name('projects.settings.update');
-            Route::delete('/settings', [ProjectSettingsController::class, 'destroy'])->name('projects.settings.destroy');
+        // Project members management
+        Route::prefix('members')->name('members.')->group(function () {
+            Route::get('/', [ProjectMemberController::class, 'index'])->name('index');
+            Route::post('/', [ProjectMemberController::class, 'store'])->name('store');
+            Route::put('/{user}', [ProjectMemberController::class, 'update'])->name('update');
+            Route::delete('/{user}', [ProjectMemberController::class, 'destroy'])->name('destroy');
         });
 
-        // Autres routes spécifiques au projet
-        // ...
+        // Invitations
+        Route::prefix('invitations')->name('invitations.')->group(function () {
+            Route::post('/', [ProjectInvitationController::class, 'store'])->name('store');
+            Route::delete('/{invitation}', [ProjectInvitationController::class, 'destroy'])->name('destroy');
+            Route::post('/{invitation}/resend', [ProjectInvitationController::class, 'resend'])->name('resend');
+        });
+
+        // Project settings (owner or project admin only)
+        Route::middleware(['project.owner'])->group(function () {
+            Route::get('/settings', [ProjectSettingsController::class, 'index'])->name('settings.index');
+            Route::put('/settings', [ProjectSettingsController::class, 'update'])->name('settings.update');
+            Route::put('/settings/plan', [ProjectSettingsController::class, 'updatePlan'])->name('settings.plan.update');
+            Route::delete('/settings', [ProjectSettingsController::class, 'destroy'])->name('settings.destroy');
+        });
     });
 });
 
-// Routes admin
-Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+// Admin routes
+Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
-    // Gestion des utilisateurs
+    // Users management
     Route::resource('users', UserController::class);
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
 
-    // Gestion des rôles
+    // Roles management
     Route::resource('roles', RoleController::class);
 
-    // Gestion des plans
+    // Plans management
     Route::resource('plans', PlanController::class);
 });
 
-// Basculer entre le compte admin et le compte personnel
+// Account switching for admins
 Route::post('/switch-account', [AdminAccountController::class, 'switchAccount'])
     ->name('admin.switch-account')
     ->middleware('auth');
 
-// Routes de paramètres utilisateur
+// Settings routes
 require __DIR__ . '/settings.php';
 
-// Routes d'authentification
+// Auth routes
 require __DIR__ . '/auth.php';

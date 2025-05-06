@@ -44,9 +44,9 @@ class HandleInertiaRequests extends Middleware
         $currentProject = null;
 
         if ($request->user()) {
+            // Remove the plan relationship that doesn't exist
             $projects = $request->user()->projects()
                 ->select('id', 'name', 'owner_id')
-                ->with(['plan:id,name'])
                 ->get();
 
             // Si un projet est actif dans la requête

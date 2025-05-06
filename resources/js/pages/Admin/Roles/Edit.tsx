@@ -42,7 +42,7 @@ export default function EditRole({ role }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        patch(route('roles.update', role.id));
+        patch(route('admin.roles.update', role.id));
     };
 
     const isSystemRole = role.id <= 2;

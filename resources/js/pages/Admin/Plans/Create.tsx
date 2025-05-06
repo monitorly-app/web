@@ -36,7 +36,7 @@ export default function CreatePlan() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(route('plans.store'));
+        post(route('admin.plans.store'));
     };
 
     return (

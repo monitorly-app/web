@@ -18,7 +18,7 @@ class ProjectController extends Controller
         $projects = auth()->user()->projects()->with('plan')->get();
 
         return Inertia::render('User/Projects/Select', [
-            'projects' => $projects,
+            'projects' => $projects
         ]);
     }
 

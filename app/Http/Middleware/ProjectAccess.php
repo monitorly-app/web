@@ -5,38 +5,53 @@ namespace App\Http\Middleware;
 use App\Models\Project;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProjectAccess
 {
-    /**
-     * Vérifie si l'utilisateur a accès au projet spécifié dans la route.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $projectId = $request->route('project');
         $user = $request->user();
 
-        // Si le paramètre project n'est pas dans la route, on continue
-        if (!$projectId) {
-            return $next($request);
+        // Add debugging
+        Log::info('Project Access Middleware', [
+            'projectId' => $projectId,
+            'type' => gettype($projectId),
+            'url' => $request->url()
+        ]);
+
+        // If the parameter is already a Project model instance
+        if ($projectId instanceof Project) {
+            $project = $projectId;
+        } else {
+            // Find the project by ID
+            $project = Project::find($projectId);
+
+            // Project not found
+            if (!$project) {
+                Log::error('Project not found', ['projectId' => $projectId]);
+                abort(404, 'Project not found');
+            }
+
+            // Replace the parameter with the full model
+            $request->route()->setParameter('project', $project);
         }
 
-        // Récupérer le projet
-        $project = Project::findOrFail($projectId);
-
-        // Vérifier si l'utilisateur est membre du projet
+        // Check if user has access to this project
         $isMember = $project->members()->where('user_id', $user->id)->exists();
 
         if (!$isMember && $project->owner_id !== $user->id) {
+            Log::warning('User does not have access to project', [
+                'userId' => $user->id,
+                'projectId' => $project->id
+            ]);
             abort(403, "You don't have access to this project");
         }
 
-        // Sauvegarder le projet actuel en session
+        // Save the current project ID in session
         session(['last_project_id' => $project->id]);
-
-        // Ajouter le projet à la requête pour y accéder dans les contrôleurs
-        $request->merge(['currentProject' => $project]);
 
         return $next($request);
     }

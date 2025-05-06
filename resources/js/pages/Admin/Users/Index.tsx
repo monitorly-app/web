@@ -65,7 +65,7 @@ export default function UsersIndex({ users }: Props) {
                 <div className="mb-6 flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Users</h1>
                     <Button asChild>
-                        <Link href={route('users.create')}>
+                        <Link href={route('admin.users.create')}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add User
                         </Link>
@@ -129,20 +129,24 @@ export default function UsersIndex({ users }: Props) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={route('users.show', user.id)}>
+                                                            <Link href={route('admin.users.show', user.id)}>
                                                                 <Eye className="mr-2 h-4 w-4" />
                                                                 View
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={route('users.edit', user.id)}>
+                                                            <Link href={route('admin.users.edit', user.id)}>
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         {!user.is_active && (
                                                             <DropdownMenuItem asChild>
-                                                                <Link href={route('users.resend-invitation', user.id)} method="post" as="button">
+                                                                <Link
+                                                                    href={route('admin.users.resend-invitation', user.id)}
+                                                                    method="post"
+                                                                    as="button"
+                                                                >
                                                                     <RefreshCw className="mr-2 h-4 w-4" />
                                                                     Resend Invitation
                                                                 </Link>

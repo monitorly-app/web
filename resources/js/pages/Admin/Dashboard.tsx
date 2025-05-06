@@ -101,7 +101,7 @@ export default function AdminDashboard({ stats, latestUsers, usersByRole, usersB
                         <div className="flex items-center justify-between">
                             <CardTitle>Latest Users</CardTitle>
                             <Button asChild size="sm">
-                                <Link href={route('users.create')}>
+                                <Link href={route('admin.users.create')}>
                                     <UserPlus className="mr-2 h-4 w-4" />
                                     Add User
                                 </Link>

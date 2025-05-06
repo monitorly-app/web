@@ -12,32 +12,28 @@ class Project extends Model
 {
     use HasFactory, HasUuids;
 
+    // IMPORTANT: These two lines are essential for UUID primary keys
+    protected $keyType = 'string';
+    public $incrementing = false;
+
     protected $fillable = [
         'id',
         'name',
         'owner_id',
-        'plan_id',
         'description',
     ];
 
     /**
-     * Relation avec le propriétaire du projet
+     * Relation with the project owner
      */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-    /**
-     * Relation avec le plan du projet
-     */
-    public function plan(): BelongsTo
-    {
-        return $this->belongsTo(Plan::class);
-    }
 
     /**
-     * Relation avec les membres du projet
+     * Relation with the project members
      */
     public function members(): BelongsToMany
     {
@@ -47,7 +43,7 @@ class Project extends Model
     }
 
     /**
-     * Vérifier si un utilisateur est membre du projet
+     * Check if a user is a member of the project
      */
     public function hasMember(User $user): bool
     {
@@ -55,7 +51,7 @@ class Project extends Model
     }
 
     /**
-     * Vérifier si un utilisateur est administrateur du projet
+     * Check if a user is an admin of the project
      */
     public function isAdmin(User $user): bool
     {

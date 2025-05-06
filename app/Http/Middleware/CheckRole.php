@@ -28,7 +28,14 @@ class CheckRole
 
             // Si l'admin est en mode personnel, rediriger vers le dashboard utilisateur
             if (Session::get('admin_mode', true) === false) {
-                return redirect()->route('user.dashboard')
+                // Get last project or user dashboard
+                $lastProject = $request->user()->projects()->latest()->first();
+                if ($lastProject) {
+                    return redirect()->route('projects.dashboard', $lastProject)
+                        ->with('info', 'You are in personal account mode. Switch to admin mode to access admin features.');
+                }
+
+                return redirect()->route('projects.select')
                     ->with('info', 'You are in personal account mode. Switch to admin mode to access admin features.');
             }
         }

@@ -50,7 +50,7 @@ export default function PlansIndex({ plans }: Props) {
 
     const handleDelete = () => {
         if (planToDelete) {
-            destroy(route('plans.destroy', planToDelete.id), {
+            destroy(route('admin.plans.destroy', planToDelete.id), {
                 onSuccess: () => setPlanToDelete(null),
             });
         }
@@ -64,7 +64,7 @@ export default function PlansIndex({ plans }: Props) {
                 <div className="mb-6 flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Plans</h1>
                     <Button asChild>
-                        <Link href={route('plans.create')}>
+                        <Link href={route('admin.plans.create')}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add Plan
                         </Link>
@@ -133,7 +133,7 @@ export default function PlansIndex({ plans }: Props) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={route('plans.edit', plan.id)}>
+                                                            <Link href={route('admin.plans.edit', plan.id)}>
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit
                                                             </Link>

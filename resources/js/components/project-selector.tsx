@@ -6,10 +6,7 @@ interface Project {
     id: string;
     name: string;
     owner_id: number;
-    plan: {
-        id: number;
-        name: string;
-    };
+    // Remove plan from interface
 }
 
 interface ProjectSelectorProps {
@@ -22,14 +19,15 @@ interface ProjectSelectorProps {
 
 export function ProjectSelector({ currentProject, projects, user }: ProjectSelectorProps) {
     const handleProjectSelect = (projectId: string) => {
-        router.visit(route('projects.dashboard', projectId));
+        // Use direct URL
+        router.visit(`/projects/${projectId}`);
     };
 
     return (
         <SidebarGroup className="mt-6">
             <SidebarGroupLabel className="flex items-center justify-between">
                 Projects
-                <Link href={route('projects.create')} className="text-muted-foreground hover:text-foreground text-xs">
+                <Link href="/projects/create" className="text-muted-foreground hover:text-foreground text-xs">
                     <PlusCircle className="h-4 w-4" />
                 </Link>
             </SidebarGroupLabel>
@@ -52,7 +50,7 @@ export function ProjectSelector({ currentProject, projects, user }: ProjectSelec
                     {projects.length === 0 && (
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href={route('projects.create')} className="text-muted-foreground hover:text-foreground">
+                                <Link href="/projects/create" className="text-muted-foreground hover:text-foreground">
                                     <PlusCircle className="h-4 w-4" />
                                     <span>Create first project</span>
                                 </Link>

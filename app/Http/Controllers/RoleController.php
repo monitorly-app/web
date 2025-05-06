@@ -74,7 +74,7 @@ class RoleController extends Controller
             $role->update($validated);
         }
 
-        return redirect()->route('roles.index')->with('success', 'Role updated successfully.');
+        return redirect()->route('admin.roles.index')->with('success', 'Role updated successfully.');
     }
 
     /**
@@ -84,11 +84,11 @@ class RoleController extends Controller
     {
         // Prevent deletion of system roles (id <= 2) or roles with users
         if ($role->id <= 2 || $role->users()->count() > 0) {
-            return redirect()->route('roles.index')->with('error', 'This role cannot be deleted.');
+            return redirect()->route('admin.roles.index')->with('error', 'This role cannot be deleted.');
         }
 
         $role->delete();
 
-        return redirect()->route('roles.index')->with('success', 'Role deleted successfully.');
+        return redirect()->route('admin.roles.index')->with('success', 'Role deleted successfully.');
     }
 }

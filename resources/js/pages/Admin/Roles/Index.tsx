@@ -46,7 +46,7 @@ export default function RolesIndex({ roles }: Props) {
 
     const handleDelete = () => {
         if (roleToDelete) {
-            destroy(route('roles.destroy', roleToDelete.id), {
+            destroy(route('admin.roles.destroy', roleToDelete.id), {
                 onSuccess: () => setRoleToDelete(null),
             });
         }
@@ -60,7 +60,7 @@ export default function RolesIndex({ roles }: Props) {
                 <div className="mb-6 flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Roles</h1>
                     <Button asChild>
-                        <Link href={route('roles.create')}>
+                        <Link href={route('admin.roles.create')}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add Role
                         </Link>
@@ -113,7 +113,7 @@ export default function RolesIndex({ roles }: Props) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={route('roles.edit', role.id)}>
+                                                            <Link href={route('admin.roles.edit', role.id)}>
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit
                                                             </Link>
