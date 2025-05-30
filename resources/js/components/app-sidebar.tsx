@@ -19,43 +19,79 @@ import AppLogo from './app-logo';
 
 export function AppSidebar() {
     const { auth, admin_mode, currentProject } = usePage<SharedData>().props;
-    const isAdmin = auth.user.role_id === 1 && admin_mode === true;
+    const isGlobalAdmin = auth.user.role_id === 1 && admin_mode === true;
 
+    // Fonction pour vérifier les permissions dans le projet
+    const getProjectPermissions = () => {
+        if (!currentProject) return { canViewOverview: false, canManageMembers: false, canManageSettings: false };
+
+        const user = auth.user;
+
+        // Owner du projet
+        const isProjectOwner = currentProject.owner_id === user.id;
+
+        // Admin du projet (chercher dans les membres avec le bon typage)
+        const userMembership = currentProject.members?.find((member) => member.id === user.id);
+        const userProjectRole = userMembership?.pivot?.project_role_id;
+
+        // Ajuste selon tes project_roles (1 = Owner/Admin, 2 = Admin, 3 = Developer, 4 = Viewer)
+        const isProjectAdmin = userProjectRole === 1 || userProjectRole === 2;
+
+        return {
+            canViewOverview: true, // Tous les membres peuvent voir l'overview
+            canManageMembers: isProjectOwner || isProjectAdmin,
+            canManageSettings: isProjectOwner, // Seul l'owner peut gérer les settings
+        };
+    };
+
+    const permissions = getProjectPermissions();
+
+    // Navigation principale
     const mainNavItems: NavItem[] =
-        !currentProject || isAdmin
+        !currentProject || isGlobalAdmin
             ? [
                   {
                       title: 'Dashboard',
-                      href: isAdmin ? '/admin/dashboard' : '/projects/select',
+                      href: isGlobalAdmin ? '/admin/dashboard' : '/projects/select',
                       icon: LayoutGrid,
                   },
               ]
             : [];
 
-    // Éléments de navigation spécifiques au projet
-    const projectNavItems: NavItem[] =
-        currentProject && !isAdmin
-            ? [
-                  {
-                      title: 'Overview',
-                      href: `/projects/${currentProject.id}`,
-                      icon: LayoutGrid,
-                  },
-                  {
-                      title: 'Members',
-                      href: `/projects/${currentProject.id}/members`,
-                      icon: Users,
-                  },
-                  {
-                      title: 'Settings',
-                      href: `/projects/${currentProject.id}/settings`,
-                      icon: Settings,
-                  },
-              ]
-            : [];
+    // Navigation spécifique au projet (basée sur les permissions)
+    const projectNavItems: NavItem[] = [];
 
-    // Éléments de navigation admin
-    const adminNavItems: NavItem[] = isAdmin
+    if (currentProject && !isGlobalAdmin) {
+        // Overview - toujours visible pour les membres
+        if (permissions.canViewOverview) {
+            projectNavItems.push({
+                title: 'Overview',
+                href: `/projects/${currentProject.id}`,
+                icon: LayoutGrid,
+            });
+        }
+
+        // Members - seulement pour owners et admins
+        if (permissions.canManageMembers) {
+            projectNavItems.push({
+                title: 'Members',
+                href: `/projects/${currentProject.id}/members`,
+                icon: Users,
+            });
+        }
+
+        // Settings - seulement pour owners
+        if (permissions.canManageSettings) {
+            projectNavItems.push({
+                title: 'Settings',
+                href: `/projects/${currentProject.id}/settings`,
+                icon: Settings,
+            });
+        }
+    }
+
+    // Navigation admin globale
+    const adminNavItems: NavItem[] = isGlobalAdmin
         ? [
               {
                   title: 'Users',
@@ -95,7 +131,7 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link
-                                href={isAdmin ? '/admin/dashboard' : currentProject ? `/projects/${currentProject.id}` : '/projects/select'}
+                                href={isGlobalAdmin ? '/admin/dashboard' : currentProject ? `/projects/${currentProject.id}` : '/projects/select'}
                                 prefetch
                             >
                                 <AppLogo />
@@ -106,17 +142,19 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
+                {/* Navigation principale */}
                 {mainNavItems.length > 0 && <NavMain items={mainNavItems} />}
 
-                {/* Section de navigation spécifique au projet */}
+                {/* Navigation du projet */}
                 {projectNavItems.length > 0 && (
                     <SidebarGroup className={mainNavItems.length > 0 ? 'mt-4' : ''}>
+                        <SidebarGroupLabel>Project</SidebarGroupLabel>
                         <NavMain items={projectNavItems} />
                     </SidebarGroup>
                 )}
 
-                {/* Section de navigation admin */}
-                {isAdmin && adminNavItems.length > 0 && (
+                {/* Navigation admin globale */}
+                {isGlobalAdmin && adminNavItems.length > 0 && (
                     <SidebarGroup className="mt-4">
                         <SidebarGroupLabel>Administration</SidebarGroupLabel>
                         <NavMain items={adminNavItems} />

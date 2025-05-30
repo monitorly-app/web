@@ -22,17 +22,6 @@ export interface NavItem {
     isActive?: boolean;
 }
 
-export interface SharedData {
-    name: string;
-    quote: { message: string; author: string };
-    auth: Auth;
-    ziggy: Config & { location: string };
-    sidebarOpen: boolean;
-    [key: string]: unknown;
-    currentProject?: Project;
-    projects: Project[];
-}
-
 export interface User {
     id: number;
     name: string;
@@ -41,15 +30,48 @@ export interface User {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
-    [key: string]: unknown; // This allows for additional properties...
+    role_id?: number;
+    [key: string]: unknown;
+}
+
+// Interface pour les membres du projet avec pivot
+export interface ProjectMember {
+    id: number;
+    name: string;
+    email: string;
+    avatar?: string;
+    pivot: {
+        project_role_id: number;
+        created_at?: string;
+        updated_at?: string;
+    };
 }
 
 export interface Project {
     id: string;
     name: string;
     description?: string;
-    plan_id: number;
     owner_id: number;
+    owner?: User;
+    members?: ProjectMember[]; // Utiliser ProjectMember au lieu de User
     created_at: string;
     updated_at: string;
+}
+
+export interface SharedData {
+    name: string;
+    quote: { message: string; author: string };
+    auth: Auth;
+    ziggy: Config & { location: string };
+    sidebarOpen: boolean;
+    admin_mode?: boolean;
+    currentProject?: Project;
+    projects: Project[];
+    flash?: {
+        success?: string;
+        error?: string;
+        info?: string;
+        warning?: string;
+    };
+    [key: string]: unknown;
 }
