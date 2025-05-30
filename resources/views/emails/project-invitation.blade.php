@@ -1,4 +1,4 @@
-<x-mail::message>
+@component('mail::message')
 # You've been invited to join {{ $project->name }}
 
 Hello!
@@ -14,9 +14,9 @@ Hello!
 
 Click the button below to accept the invitation and join the project. If you don't have an account yet, you'll be able to create one during the process.
 
-<x-mail::button :url="$acceptUrl" color="primary">
+@component('mail::button', ['url' => $acceptUrl, 'color' => 'primary'])
 Accept Invitation
-</x-mail::button>
+@endcomponent
 
 ## Project Details
 
@@ -34,7 +34,7 @@ If you have any questions, please contact {{ $invitedBy->name }} directly at {{ 
 Thanks,<br>
 {{ config('app.name') }} Team
 
-<x-mail::subcopy>
+@slot('subcopy')
 If you're having trouble clicking the "Accept Invitation" button, copy and paste the URL below into your web browser: [{{ $acceptUrl }}]({{ $acceptUrl }})
-</x-mail::subcopy>
-</x-mail::message>
+@endslot
+@endcomponent

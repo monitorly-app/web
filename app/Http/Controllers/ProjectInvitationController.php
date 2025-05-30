@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ProjectInvitationEmail;
 use App\Models\Project;
 use App\Models\ProjectInvitation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -38,10 +41,22 @@ class ProjectInvitationController extends Controller
             'status' => 'pending',
         ]);
 
-        // Send invitation email
-        // TODO: Implement email sending
+        // Load relations for email
+        $invitation->load('role');
 
-        return redirect()->back()->with('success', 'Invitation sent successfully.');
+        try {
+            // Send invitation email
+            Mail::to($validated['email'])->send(
+                new ProjectInvitationEmail($invitation, $project, Auth::user())
+            );
+
+            return redirect()->back()->with('success', 'Invitation sent successfully.');
+        } catch (\Exception $e) {
+            // Delete invitation if email fails
+            $invitation->delete();
+
+            return redirect()->back()->with('error', 'Failed to send invitation email.');
+        }
     }
 
     /**
@@ -56,7 +71,7 @@ class ProjectInvitationController extends Controller
 
         $invitation->delete();
 
-        return redirect()->back()->with('success', 'Invitation deleted successfully.');
+        return redirect()->back()->with('success', 'Invitation cancelled successfully.');
     }
 
     /**
@@ -69,15 +84,19 @@ class ProjectInvitationController extends Controller
             return redirect()->back()->with('error', 'This invitation does not belong to the project.');
         }
 
-        // Update invitation token
-        $invitation->update([
-            'token' => Str::uuid(),
-        ]);
+        // Load relations for email
+        $invitation->load('role');
 
-        // Send invitation email
-        // TODO: Implement email sending
+        try {
+            // Send invitation email
+            Mail::to($invitation->email)->send(
+                new ProjectInvitationEmail($invitation, $project, Auth::user())
+            );
 
-        return redirect()->back()->with('success', 'Invitation resent successfully.');
+            return redirect()->back()->with('success', 'Invitation resent successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to resend invitation email.');
+        }
     }
 
     /**
@@ -87,7 +106,18 @@ class ProjectInvitationController extends Controller
     {
         $invitation = ProjectInvitation::where('token', $token)
             ->where('status', 'pending')
-            ->firstOrFail();
+            ->with(['project', 'role'])
+            ->first();
+
+        if (!$invitation) {
+            return redirect()->route('home')->with('error', 'This invitation is invalid or has already been used.');
+        }
+
+        // Check if invitation has expired (7 days)
+        if ($invitation->created_at->addDays(7)->isPast()) {
+            $invitation->update(['status' => 'expired']);
+            return redirect()->route('home')->with('error', 'This invitation has expired. Please request a new one.');
+        }
 
         // Check if user is authenticated
         if (!$request->user()) {
@@ -98,20 +128,36 @@ class ProjectInvitationController extends Controller
 
         // Check if email matches
         if ($invitation->email !== $request->user()->email) {
-            return redirect()->route('home')->with('error', 'This invitation was sent to a different email address.');
+            return redirect()->route('home')->with('error', 'This invitation was sent to a different email address (' . $invitation->email . ').');
         }
 
-        // Add user to project
-        $invitation->project->members()->attach($request->user()->id, [
-            'project_role_id' => $invitation->project_role_id,
-        ]);
+        // Check if user is already a member of the project
+        if ($invitation->project->members()->where('user_id', $request->user()->id)->exists()) {
+            $invitation->update(['status' => 'accepted']);
+            return redirect()->route('projects.dashboard', $invitation->project_id)
+                ->with('info', 'You are already a member of this project.');
+        }
 
-        // Mark invitation as accepted
-        $invitation->update([
-            'status' => 'accepted',
-        ]);
+        // Check if user is the project owner
+        if ($invitation->project->owner_id === $request->user()->id) {
+            $invitation->update(['status' => 'accepted']);
+            return redirect()->route('projects.dashboard', $invitation->project_id)
+                ->with('info', 'You are the owner of this project.');
+        }
 
-        return redirect()->route('projects.dashboard', $invitation->project_id)
-            ->with('success', 'You have successfully joined the project.');
+        try {
+            // Add user to project
+            $invitation->project->members()->attach($request->user()->id, [
+                'project_role_id' => $invitation->project_role_id,
+            ]);
+
+            // Mark invitation as accepted
+            $invitation->update(['status' => 'accepted']);
+
+            return redirect()->route('projects.dashboard', $invitation->project_id)
+                ->with('success', 'You have successfully joined the project "' . $invitation->project->name . '".');
+        } catch (\Exception $e) {
+            return redirect()->route('home')->with('error', 'An error occurred while joining the project. Please try again.');
+        }
     }
 }

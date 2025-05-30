@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,7 +21,7 @@ class AuthenticatedSessionController extends Controller
     {
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
-            'status' => $request->session()->get('status'),
+            'status' => Session::get('status'),
         ]);
     }
 
@@ -31,14 +32,23 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
-        $request->session()->regenerate();
+        Session::regenerate();
 
-        // Check role ID (note: it should be compared as integer, not string)
-        if ($request->user()->role_id === 1) {
+        // Check if there's a pending invitation in session
+        if (Session::has('invitation_token')) {
+            $token = Session::get('invitation_token');
+            Session::forget('invitation_token');
+
+            // Redirect to invitation acceptance
+            return redirect()->route('invitations.accept', $token);
+        }
+
+        // Check role ID
+        if (Auth::user()->role_id === 1) {
             return redirect()->intended(route('admin.dashboard', absolute: false));
         } else {
             // For normal users, check if they have projects
-            $user = $request->user();
+            $user = Auth::user();
             $lastProject = $user->projects()->latest()->first();
 
             if ($lastProject) {
@@ -57,8 +67,8 @@ class AuthenticatedSessionController extends Controller
     {
         Auth::guard('web')->logout();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        Session::invalidate();
+        Session::regenerateToken();
 
         return redirect('/');
     }

@@ -8,7 +8,7 @@ use App\Http\Controllers\Admin\PlanController;
 
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ProjectDashboardController; // On garde ce contrôleur existant!
+use App\Http\Controllers\ProjectDashboardController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectMembersController;
 use App\Http\Controllers\ProjectSettingsController;
@@ -19,11 +19,6 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group.
-|
 */
 
 // Home route - redirects to the appropriate dashboard based on user role
@@ -46,6 +41,10 @@ Route::get('/', function () {
     return redirect()->route('login');
 })->name('home');
 
+// PUBLIC: Accept invitation route (accessible without authentication)
+Route::get('/invitations/{token}/accept', [ProjectInvitationController::class, 'accept'])
+    ->name('invitations.accept');
+
 // Routes accessible to authenticated users
 Route::middleware(['auth', 'verified'])->group(function () {
     // User dashboard - for non-project specific user functions
@@ -60,7 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Project-specific routes (with project context)
     Route::prefix('projects/{project}')->name('projects.')->middleware(['project.access'])->group(function () {
-        // Dashboard - GARDER CETTE ROUTE, JUSTE CHANGER LA VUE DANS LE CONTRÔLEUR!
+        // Dashboard
         Route::get('/', [ProjectDashboardController::class, 'index'])->name('dashboard');
 
         // Project members management

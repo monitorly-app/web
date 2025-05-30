@@ -32,20 +32,40 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        // Extract first and last names from full name
+        $nameParts = explode(' ', trim($request->name), 2);
+        $firstName = $nameParts[0];
+        $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
+
         $user = User::create([
             'name' => $request->name,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role_id' => 2, // Default user role
+            'plan_id' => 1, // Default free plan
+            'is_active' => true,
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return to_route('dashboard');
+        // Check if there's a pending invitation in session
+        if ($request->session()->has('invitation_token')) {
+            $token = $request->session()->get('invitation_token');
+            $request->session()->forget('invitation_token');
+
+            // Redirect to invitation acceptance
+            return redirect()->route('invitations.accept', $token);
+        }
+
+        // Default redirect for new users
+        return redirect()->route('projects.create');
     }
 }
