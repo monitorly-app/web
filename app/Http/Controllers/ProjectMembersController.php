@@ -21,6 +21,12 @@ class ProjectMembersController extends Controller
         // Charger le projet avec son propriétaire et ses membres
         $project->load(['owner', 'members']);
 
+        // Récupérer les invitations en attente pour ce projet
+        $pendingInvitations = ProjectInvitation::where('project_id', $project->id)
+            ->where('status', 'pending')
+            ->with('role') // Charger le rôle de l'invitation
+            ->get();
+
         // Récupérer les rôles disponibles pour les membres
         $projectRoles = ProjectRole::all();
 
@@ -31,6 +37,7 @@ class ProjectMembersController extends Controller
             'project' => $project,
             'isOwner' => $isOwner,
             'projectRoles' => $projectRoles,
+            'pendingInvitations' => $pendingInvitations, // Ajouter les invitations
         ]);
     }
 
@@ -54,9 +61,6 @@ class ProjectMembersController extends Controller
         $user = User::where('email', $validated['email'])->first();
 
         if (!$user) {
-            // Si l'utilisateur n'existe pas, créer une invitation directement ici
-            // plutôt que de rediriger vers une route POST
-
             // Vérifier si une invitation existe déjà
             $invitationExists = ProjectInvitation::where('project_id', $project->id)
                 ->where('email', $validated['email'])

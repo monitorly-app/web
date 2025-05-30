@@ -13,7 +13,7 @@ import { useInitials } from '@/hooks/use-initials';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
-import { Copy, MoreHorizontal, Shield, Trash, UserPlus, UsersRound } from 'lucide-react';
+import { Clock, Copy, Mail, MoreHorizontal, RefreshCw, Shield, Trash, UserPlus, UsersRound } from 'lucide-react';
 import { useState } from 'react';
 
 interface ProjectMember {
@@ -39,6 +39,15 @@ interface ProjectOwner {
     avatar?: string;
 }
 
+interface PendingInvitation {
+    id: number;
+    email: string;
+    project_role_id: number;
+    status: string;
+    created_at: string;
+    role: ProjectRole;
+}
+
 interface Project {
     id: string;
     name: string;
@@ -51,15 +60,16 @@ interface Props {
     project: Project;
     isOwner: boolean;
     projectRoles: ProjectRole[];
+    pendingInvitations: PendingInvitation[];
 }
 
-export default function MembersIndex({ project, isOwner, projectRoles }: Props) {
+export default function MembersIndex({ project, isOwner, projectRoles, pendingInvitations }: Props) {
     const getInitials = useInitials();
     const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
+    const [invitationToCancel, setInvitationToCancel] = useState<PendingInvitation | null>(null);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<ProjectMember | null>(null);
-    const [addDirectly, setAddDirectly] = useState(true);
 
     // Invite form
     const inviteForm = useForm({
@@ -75,6 +85,12 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
     // Remove member form
     const removeForm = useForm({});
 
+    // Cancel invitation form
+    const cancelInvitationForm = useForm({});
+
+    // Resend invitation form
+    const resendInvitationForm = useForm({});
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: project.name,
@@ -89,10 +105,7 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
     const handleInvite = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Choisir entre l'ajout direct et l'invitation
-        const endpoint = addDirectly ? route('projects.members.store', project.id) : route('projects.invitations.store', project.id);
-
-        inviteForm.post(endpoint, {
+        inviteForm.post(route('projects.members.store', project.id), {
             onSuccess: () => {
                 setIsInviteDialogOpen(false);
                 inviteForm.reset();
@@ -123,6 +136,28 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
         });
     };
 
+    const handleCancelInvitation = () => {
+        if (!invitationToCancel) return;
+
+        cancelInvitationForm.delete(route('projects.invitations.destroy', [project.id, invitationToCancel.id]), {
+            onSuccess: () => {
+                setInvitationToCancel(null);
+            },
+        });
+    };
+
+    const handleResendInvitation = (invitation: PendingInvitation) => {
+        resendInvitationForm.post(route('projects.invitations.resend', [project.id, invitation.id]));
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${project.name} - Members`} />
@@ -142,7 +177,7 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                 <DialogHeader>
                                     <DialogTitle>Invite New Member</DialogTitle>
                                     <DialogDescription>
-                                        Send an invitation to join this project. The user will receive an email with instructions.
+                                        Send an invitation to join this project. If the user doesn't exist, they will receive an email invitation.
                                     </DialogDescription>
                                 </DialogHeader>
 
@@ -184,25 +219,12 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                         )}
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            id="addDirectly"
-                                            checked={addDirectly}
-                                            onChange={(e) => setAddDirectly(e.target.checked)}
-                                            className="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
-                                        />
-                                        <Label htmlFor="addDirectly" className="text-sm font-normal">
-                                            Ajouter directement si l'utilisateur existe déjà
-                                        </Label>
-                                    </div>
-
                                     <DialogFooter>
                                         <Button type="button" variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
                                             Cancel
                                         </Button>
                                         <Button type="submit" disabled={inviteForm.processing}>
-                                            {addDirectly ? 'Ajouter membre' : 'Envoyer invitation'}
+                                            Send Invitation
                                         </Button>
                                     </DialogFooter>
                                 </form>
@@ -211,52 +233,148 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                     )}
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Team Members</CardTitle>
-                        <CardDescription>Manage who has access to this project and their roles</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-6">
-                            {/* Project owner */}
-                            <div className="rounded-lg border p-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarImage src={project.owner.avatar} alt={project.owner.name} />
-                                            <AvatarFallback>{getInitials(project.owner.name)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium">{project.owner.name}</p>
-                                                <Badge>Owner</Badge>
+                <div className="space-y-6">
+                    {/* Current Members */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Team Members</CardTitle>
+                            <CardDescription>Active members who have access to this project</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-6">
+                                {/* Project owner */}
+                                <div className="rounded-lg border p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={project.owner.avatar} alt={project.owner.name} />
+                                                <AvatarFallback>{getInitials(project.owner.name)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{project.owner.name}</p>
+                                                    <Badge>Owner</Badge>
+                                                </div>
+                                                <p className="text-muted-foreground text-sm">{project.owner.email}</p>
                                             </div>
-                                            <p className="text-muted-foreground text-sm">{project.owner.email}</p>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Team members */}
-                            {project.members.length > 0 ? (
+                                {/* Team members */}
+                                {project.members.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {project.members.map((member) => (
+                                            <div key={member.id} className="rounded-lg border p-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-10 w-10">
+                                                            <AvatarImage src={member.avatar} alt={member.name} />
+                                                            <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <p className="font-medium">{member.name}</p>
+                                                            <p className="text-muted-foreground text-sm">{member.email}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="secondary">
+                                                            {projectRoles.find((role) => role.id === member.pivot.project_role_id)?.name || 'Member'}
+                                                        </Badge>
+
+                                                        {isOwner && (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                        <span className="sr-only">Open menu</span>
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => {
+                                                                            setSelectedMember(member);
+                                                                            roleForm.setData(
+                                                                                'project_role_id',
+                                                                                member.pivot.project_role_id.toString(),
+                                                                            );
+                                                                            setIsRoleDialogOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <Shield className="mr-2 h-4 w-4" />
+                                                                        Change Role
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(member.email);
+                                                                        }}
+                                                                    >
+                                                                        <Copy className="mr-2 h-4 w-4" />
+                                                                        Copy Email
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => setMemberToRemove(member)}
+                                                                        className="text-destructive focus:text-destructive"
+                                                                    >
+                                                                        <Trash className="mr-2 h-4 w-4" />
+                                                                        Remove
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+                                        <UsersRound className="mb-2 h-10 w-10 opacity-20" />
+                                        <p>No team members yet</p>
+                                        {isOwner && (
+                                            <Button className="mt-4" onClick={() => setIsInviteDialogOpen(true)}>
+                                                <UserPlus className="mr-2 h-4 w-4" />
+                                                Invite your first team member
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Pending Invitations */}
+                    {pendingInvitations.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Pending Invitations</CardTitle>
+                                <CardDescription>Invitations that have been sent but not yet accepted</CardDescription>
+                            </CardHeader>
+                            <CardContent>
                                 <div className="space-y-4">
-                                    {project.members.map((member) => (
-                                        <div key={member.id} className="rounded-lg border p-4">
+                                    {pendingInvitations.map((invitation) => (
+                                        <div key={invitation.id} className="rounded-lg border border-dashed p-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <Avatar className="h-10 w-10">
-                                                        <AvatarImage src={member.avatar} alt={member.name} />
-                                                        <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-full">
+                                                        <Mail className="h-5 w-5" />
+                                                    </div>
                                                     <div>
-                                                        <p className="font-medium">{member.name}</p>
-                                                        <p className="text-muted-foreground text-sm">{member.email}</p>
+                                                        <p className="font-medium">{invitation.email}</p>
+                                                        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                                                            <Clock className="h-3 w-3" />
+                                                            <span>Invited on {formatDate(invitation.created_at)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center gap-2">
+                                                    <Badge variant="outline">{invitation.role.name}</Badge>
                                                     <Badge variant="secondary">
-                                                        {projectRoles.find((role) => role.id === member.pivot.project_role_id)?.name || 'Member'}
+                                                        <Clock className="mr-1 h-3 w-3" />
+                                                        Pending
                                                     </Badge>
 
                                                     {isOwner && (
@@ -269,18 +387,15 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
                                                                 <DropdownMenuItem
-                                                                    onClick={() => {
-                                                                        setSelectedMember(member);
-                                                                        roleForm.setData('project_role_id', member.pivot.project_role_id.toString());
-                                                                        setIsRoleDialogOpen(true);
-                                                                    }}
+                                                                    onClick={() => handleResendInvitation(invitation)}
+                                                                    disabled={resendInvitationForm.processing}
                                                                 >
-                                                                    <Shield className="mr-2 h-4 w-4" />
-                                                                    Change Role
+                                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                                    Resend Invitation
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem
                                                                     onClick={() => {
-                                                                        navigator.clipboard.writeText(member.email);
+                                                                        navigator.clipboard.writeText(invitation.email);
                                                                     }}
                                                                 >
                                                                     <Copy className="mr-2 h-4 w-4" />
@@ -288,11 +403,11 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
-                                                                    onClick={() => setMemberToRemove(member)}
+                                                                    onClick={() => setInvitationToCancel(invitation)}
                                                                     className="text-destructive focus:text-destructive"
                                                                 >
                                                                     <Trash className="mr-2 h-4 w-4" />
-                                                                    Remove
+                                                                    Cancel Invitation
                                                                 </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
@@ -302,21 +417,10 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
-                                <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                                    <UsersRound className="mb-2 h-10 w-10 opacity-20" />
-                                    <p>No team members yet</p>
-                                    {isOwner && (
-                                        <Button className="mt-4" onClick={() => setIsInviteDialogOpen(true)}>
-                                            <UserPlus className="mr-2 h-4 w-4" />
-                                            Invite your first team member
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             </div>
 
             {/* Change Role Dialog */}
@@ -379,6 +483,28 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                         </Button>
                         <Button variant="destructive" onClick={handleRemoveMember} disabled={removeForm.processing}>
                             Remove Member
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Cancel Invitation Dialog */}
+            <Dialog open={!!invitationToCancel} onOpenChange={(open) => !open && setInvitationToCancel(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Cancel Invitation</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to cancel the invitation for {invitationToCancel?.email}? They will no longer be able to join this
+                            project using this invitation.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setInvitationToCancel(null)}>
+                            Keep Invitation
+                        </Button>
+                        <Button variant="destructive" onClick={handleCancelInvitation} disabled={cancelInvitationForm.processing}>
+                            Cancel Invitation
                         </Button>
                     </DialogFooter>
                 </DialogContent>
