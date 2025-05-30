@@ -15,24 +15,31 @@ class ProjectRoleSeeder extends Seeder
         $roles = [
             [
                 'name' => 'Owner',
-                'description' => 'Project owner with full access',
+                'description' => 'Project owner with full access - can manage everything including project deletion',
             ],
             [
                 'name' => 'Admin',
-                'description' => 'Project administrator with most privileges',
+                'description' => 'Project administrator - full access except project deletion and ownership transfer',
+            ],
+            [
+                'name' => 'Engineer',
+                'description' => 'Can manage servers, configure alerts, view all metrics - cannot manage members',
             ],
             [
                 'name' => 'Developer',
-                'description' => 'Can manage servers and view metrics',
+                'description' => 'Can view servers and metrics, acknowledge alerts - cannot modify configurations',
             ],
             [
                 'name' => 'Viewer',
-                'description' => 'Read-only access to project resources',
+                'description' => 'Read-only access to servers, metrics and alerts - cannot modify anything',
             ],
         ];
 
         foreach ($roles as $role) {
-            ProjectRole::create($role);
+            ProjectRole::updateOrCreate(
+                ['name' => $role['name']],
+                $role
+            );
         }
     }
 }

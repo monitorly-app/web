@@ -27,6 +27,11 @@ return new class extends Migration
             $table->string('name');
             $table->foreignId('owner_id')->constrained('users');
             $table->text('description')->nullable();
+            $table->string('api_key')->unique();
+            $table->string('encryption_key');
+            $table->timestamp('api_key_last_used_at')->nullable();
+            $table->integer('api_requests_count')->default(0);
+            $table->date('api_requests_reset_date')->default(now()->toDateString());
             $table->timestamps();
         });
 

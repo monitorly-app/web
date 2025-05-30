@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Plan;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -15,10 +16,14 @@ class ProjectController extends Controller
      */
     public function select()
     {
-        $projects = auth()->user()->projects()->with('plan')->get();
+        $user = Auth::user();
+        $projects = $user->projects()->with('owner')->get();
+        $userPlan = $user->plan;
 
         return Inertia::render('User/Projects/Select', [
-            'projects' => $projects
+            'projects' => $projects,
+            'userPlan' => $userPlan,
+            'projectsCount' => $projects->count(),
         ]);
     }
 
@@ -27,11 +32,22 @@ class ProjectController extends Controller
      */
     public function create()
     {
-        // Pas besoin de plans ici, puisque le plan est sur l'utilisateur
-        $isFirstProject = auth()->user()->ownedProjects()->count() === 0;
+        $user = Auth::user();
+        $userPlan = $user->plan;
+        $currentProjectsCount = $user->ownedProjects()->count();
+
+        // Vérifier si l'utilisateur peut créer un nouveau projet
+        if ($userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
+            return redirect()->route('projects.select')
+                ->with('error', "You have reached the maximum number of projects ({$userPlan->max_projects}) for your {$userPlan->name} plan. Please upgrade to create more projects.");
+        }
+
+        $isFirstProject = $currentProjectsCount === 0;
 
         return Inertia::render('User/Projects/Create', [
             'isFirstProject' => $isFirstProject,
+            'userPlan' => $userPlan,
+            'currentProjectsCount' => $currentProjectsCount,
         ]);
     }
 
@@ -40,19 +56,30 @@ class ProjectController extends Controller
      */
     public function store(Request $request)
     {
+        $user = Auth::user();
+        $userPlan = $user->plan;
+        $currentProjectsCount = $user->ownedProjects()->count();
+
+        // Double vérification côté serveur
+        if ($userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
+            return redirect()->back()
+                ->with('error', "You have reached the maximum number of projects ({$userPlan->max_projects}) for your {$userPlan->name} plan.");
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:1000',
         ]);
 
         $project = Project::create([
             'id' => (string) Str::uuid(),
             'name' => $validated['name'],
             'description' => $validated['description'],
-            'owner_id' => auth()->id(),
+            'owner_id' => $user->id,
         ]);
 
         // Après la création, rediriger directement vers le dashboard du projet
-        return redirect()->route('projects.dashboard', $project->id);
+        return redirect()->route('projects.dashboard', $project->id)
+            ->with('success', 'Project created successfully!');
     }
 }

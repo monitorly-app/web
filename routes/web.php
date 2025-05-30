@@ -11,6 +11,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectDashboardController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectMembersController;
+use App\Http\Controllers\ProjectServersController;
 use App\Http\Controllers\ProjectSettingsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -83,6 +84,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/settings', [ProjectSettingsController::class, 'update'])->name('settings.update');
             Route::put('/settings/plan', [ProjectSettingsController::class, 'updatePlan'])->name('settings.plan.update');
             Route::delete('/settings', [ProjectSettingsController::class, 'destroy'])->name('settings.destroy');
+
+            // API Keys management
+            Route::post('/settings/regenerate-api-key', [ProjectSettingsController::class, 'regenerateApiKey'])->name('settings.regenerate-api-key');
+            Route::post('/settings/regenerate-encryption-key', [ProjectSettingsController::class, 'regenerateEncryptionKey'])->name('settings.regenerate-encryption-key');
+            Route::post('/settings/regenerate-all-keys', [ProjectSettingsController::class, 'regenerateAllKeys'])->name('settings.regenerate-all-keys');
+        });
+
+
+        // Servers management
+        Route::prefix('servers')->name('servers.')->group(function () {
+            Route::get('/', [ProjectServersController::class, 'index'])->name('index');
+            Route::get('/create', [ProjectServersController::class, 'create'])->name('create');
+            Route::post('/', [ProjectServersController::class, 'store'])->name('store');
+            Route::get('/{server}', [ProjectServersController::class, 'show'])->name('show');
+            Route::put('/{server}', [ProjectServersController::class, 'update'])->name('update');
+            Route::delete('/{server}', [ProjectServersController::class, 'destroy'])->name('destroy');
+            Route::post('/{server}/regenerate-token', [ProjectServersController::class, 'regenerateToken'])->name('regenerate-token');
         });
     });
 });
