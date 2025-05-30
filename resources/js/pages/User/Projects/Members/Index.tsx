@@ -59,6 +59,7 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<ProjectMember | null>(null);
+    const [addDirectly, setAddDirectly] = useState(true);
 
     // Invite form
     const inviteForm = useForm({
@@ -87,7 +88,11 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
 
     const handleInvite = (e: React.FormEvent) => {
         e.preventDefault();
-        inviteForm.post(route('projects.invitations.store', project.id), {
+
+        // Choisir entre l'ajout direct et l'invitation
+        const endpoint = addDirectly ? route('projects.members.store', project.id) : route('projects.invitations.store', project.id);
+
+        inviteForm.post(endpoint, {
             onSuccess: () => {
                 setIsInviteDialogOpen(false);
                 inviteForm.reset();
@@ -179,12 +184,25 @@ export default function MembersIndex({ project, isOwner, projectRoles }: Props) 
                                         )}
                                     </div>
 
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="addDirectly"
+                                            checked={addDirectly}
+                                            onChange={(e) => setAddDirectly(e.target.checked)}
+                                            className="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
+                                        />
+                                        <Label htmlFor="addDirectly" className="text-sm font-normal">
+                                            Ajouter directement si l'utilisateur existe déjà
+                                        </Label>
+                                    </div>
+
                                     <DialogFooter>
                                         <Button type="button" variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
                                             Cancel
                                         </Button>
                                         <Button type="submit" disabled={inviteForm.processing}>
-                                            Send Invitation
+                                            {addDirectly ? 'Ajouter membre' : 'Envoyer invitation'}
                                         </Button>
                                     </DialogFooter>
                                 </form>

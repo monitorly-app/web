@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\ProjectRole;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class ProjectMembersController extends Controller
@@ -30,6 +32,66 @@ class ProjectMembersController extends Controller
             'isOwner' => $isOwner,
             'projectRoles' => $projectRoles,
         ]);
+    }
+
+    /**
+     * Ajoute un membre au projet
+     */
+    public function store(Request $request, Project $project)
+    {
+        // Vérifier que l'utilisateur actuel est propriétaire
+        if ($project->owner_id !== Auth::id()) {
+            return redirect()->back()->with('error', 'Only project owners can add members.');
+        }
+
+        // Valider la requête
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'project_role_id' => 'required|exists:project_roles,id',
+        ]);
+
+        // Vérifier si l'utilisateur existe déjà
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user) {
+            // Si l'utilisateur n'existe pas, créer une invitation directement ici
+            // plutôt que de rediriger vers une route POST
+
+            // Vérifier si une invitation existe déjà
+            $invitationExists = ProjectInvitation::where('project_id', $project->id)
+                ->where('email', $validated['email'])
+                ->where('status', 'pending')
+                ->exists();
+
+            if ($invitationExists) {
+                return redirect()->back()->with('error', 'Une invitation a déjà été envoyée à cet email.');
+            }
+
+            // Créer l'invitation
+            ProjectInvitation::create([
+                'project_id' => $project->id,
+                'email' => $validated['email'],
+                'project_role_id' => $validated['project_role_id'],
+                'token' => Str::uuid(),
+                'status' => 'pending',
+            ]);
+
+            // TODO: Envoyer email d'invitation
+
+            return redirect()->back()->with('success', "L'utilisateur n'existe pas. Une invitation a été envoyée.");
+        }
+
+        // Vérifier si l'utilisateur est déjà membre du projet
+        if ($project->members()->where('user_id', $user->id)->exists()) {
+            return redirect()->back()->with('error', 'User is already a member of this project.');
+        }
+
+        // Ajouter l'utilisateur comme membre du projet
+        $project->members()->attach($user->id, [
+            'project_role_id' => $validated['project_role_id'],
+        ]);
+
+        return redirect()->back()->with('success', 'Member added successfully.');
     }
 
     /**
