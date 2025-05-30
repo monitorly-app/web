@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Project;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProjectOwner
@@ -14,16 +15,17 @@ class ProjectOwner
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $projectId = $request->route('project');
+        $project = $request->route('project');
         $user = $request->user();
 
+
         // Si le paramètre project n'est pas dans la route, on continue
-        if (!$projectId) {
+        if (!$project) {
             return $next($request);
         }
 
         // Récupérer le projet
-        $project = Project::findOrFail($projectId);
+        // $project = Project::findOrFail($projectId);
 
         // Vérifier si l'utilisateur est propriétaire du projet
         if ($project->owner_id !== $user->id) {

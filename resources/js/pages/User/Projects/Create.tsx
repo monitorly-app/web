@@ -31,7 +31,7 @@ export default function CreateProject({ isFirstProject }: { isFirstProject: bool
     };
 
     return (
-        <AppLayout showProjectSelector={false}>
+        <AppLayout>
             <Head title="Create Project" />
 
             <div className="p-6">

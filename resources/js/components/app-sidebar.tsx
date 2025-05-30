@@ -14,23 +14,47 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Package, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Package, Settings, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
-import { ProjectSelector } from './project-selector';
 
 export function AppSidebar() {
-    const { auth, admin_mode, projects, currentProject } = usePage<SharedData>().props;
+    const { auth, admin_mode, currentProject } = usePage<SharedData>().props;
     const isAdmin = auth.user.role_id === 1 && admin_mode === true;
 
-    const mainNavItems: NavItem[] = [
-        {
-            title: 'Dashboard',
-            href: isAdmin ? '/admin/dashboard' : currentProject ? `/projects/${currentProject.id}` : '/projects/select',
-            icon: LayoutGrid,
-        },
-    ];
+    const mainNavItems: NavItem[] =
+        !currentProject || isAdmin
+            ? [
+                  {
+                      title: 'Dashboard',
+                      href: isAdmin ? '/admin/dashboard' : '/projects/select',
+                      icon: LayoutGrid,
+                  },
+              ]
+            : [];
 
-    // Admin-only navigation items
+    // Éléments de navigation spécifiques au projet
+    const projectNavItems: NavItem[] =
+        currentProject && !isAdmin
+            ? [
+                  {
+                      title: 'Overview',
+                      href: `/projects/${currentProject.id}`,
+                      icon: LayoutGrid,
+                  },
+                  {
+                      title: 'Members',
+                      href: `/projects/${currentProject.id}/members`,
+                      icon: Users,
+                  },
+                  {
+                      title: 'Settings',
+                      href: `/projects/${currentProject.id}/settings`,
+                      icon: Settings,
+                  },
+              ]
+            : [];
+
+    // Éléments de navigation admin
     const adminNavItems: NavItem[] = isAdmin
         ? [
               {
@@ -82,11 +106,16 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                {mainNavItems.length > 0 && <NavMain items={mainNavItems} />}
 
-                {!isAdmin && <ProjectSelector currentProject={currentProject} projects={projects} user={auth.user} />}
+                {/* Section de navigation spécifique au projet */}
+                {projectNavItems.length > 0 && (
+                    <SidebarGroup className={mainNavItems.length > 0 ? 'mt-4' : ''}>
+                        <NavMain items={projectNavItems} />
+                    </SidebarGroup>
+                )}
 
-                {/* Admin Navigation Section - only shown in admin mode */}
+                {/* Section de navigation admin */}
                 {isAdmin && adminNavItems.length > 0 && (
                     <SidebarGroup className="mt-4">
                         <SidebarGroupLabel>Administration</SidebarGroupLabel>

@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
-use Illuminate\Http\Request;
+use App\Models\ProjectRole;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProjectDashboardController extends Controller
@@ -13,11 +14,14 @@ class ProjectDashboardController extends Controller
      */
     public function index(Project $project)
     {
-        // Load the project owner
-        $project->load('owner');
+        // Load the project with its owner and members
+        $project->load(['owner', 'members']);
 
-        // Get the owner's plan to show limits
-        $ownerPlan = $project->owner->plan;
+        // Get project roles for display
+        $projectRoles = ProjectRole::all();
+
+        // Determine if user is owner
+        $isOwner = $project->owner_id === Auth::id();
 
         // Basic project statistics
         $stats = [
@@ -25,9 +29,11 @@ class ProjectDashboardController extends Controller
             // Add other stats as needed
         ];
 
-        return Inertia::render('User/Projects/Dashboard', [
+        // On change juste la vue ici: User/Projects/Overview au lieu de Dashboard!
+        return Inertia::render('User/Projects/Overview', [
             'project' => $project,
-            'ownerPlan' => $ownerPlan, // Pass the owner's plan to the view if needed
+            'isOwner' => $isOwner,
+            'projectRoles' => $projectRoles,
             'stats' => $stats,
         ]);
     }

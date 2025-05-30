@@ -1,16 +1,18 @@
 <?php
 
-use App\Http\Controllers\AdminAccountController;
-use App\Http\Controllers\AdminDashboardController;
-use App\Http\Controllers\PlanController;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ProjectDashboardController;
-use App\Http\Controllers\ProjectInvitationController;
-use App\Http\Controllers\ProjectMemberController;
-use App\Http\Controllers\ProjectSettingsController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\AdminAccountController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\PlanController;
+
 use App\Http\Controllers\UserDashboardController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectDashboardController; // On garde ce contrôleur existant!
+use App\Http\Controllers\ProjectInvitationController;
+use App\Http\Controllers\ProjectMembersController;
+use App\Http\Controllers\ProjectSettingsController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,14 +28,14 @@ use Illuminate\Support\Facades\Route;
 
 // Home route - redirects to the appropriate dashboard based on user role
 Route::get('/', function () {
-    if (auth()->check()) {
-        if (auth()->user()->isAdmin() && session('admin_mode', true)) {
+    if (Auth::check()) {
+        if (Auth::user()->isAdmin() && session('admin_mode', true)) {
             return redirect()->route('admin.dashboard');
         }
 
         // For regular users or admins in personal mode
         // If the user has at least one project, redirect to the last project used
-        $lastProject = auth()->user()->projects()->latest()->first();
+        $lastProject = Auth::user()->projects()->latest()->first();
         if ($lastProject) {
             return redirect()->route('projects.dashboard', $lastProject);
         }
@@ -58,15 +60,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Project-specific routes (with project context)
     Route::prefix('projects/{project}')->name('projects.')->middleware(['project.access'])->group(function () {
-        // Dashboard
+        // Dashboard - GARDER CETTE ROUTE, JUSTE CHANGER LA VUE DANS LE CONTRÔLEUR!
         Route::get('/', [ProjectDashboardController::class, 'index'])->name('dashboard');
 
         // Project members management
         Route::prefix('members')->name('members.')->group(function () {
-            Route::get('/', [ProjectMemberController::class, 'index'])->name('index');
-            Route::post('/', [ProjectMemberController::class, 'store'])->name('store');
-            Route::put('/{user}', [ProjectMemberController::class, 'update'])->name('update');
-            Route::delete('/{user}', [ProjectMemberController::class, 'destroy'])->name('destroy');
+            Route::get('/', [ProjectMembersController::class, 'index'])->name('index');
+            Route::post('/', [ProjectMembersController::class, 'store'])->name('store');
+            Route::put('/{user}', [ProjectMembersController::class, 'update'])->name('update');
+            Route::delete('/{user}', [ProjectMembersController::class, 'destroy'])->name('destroy');
         });
 
         // Invitations

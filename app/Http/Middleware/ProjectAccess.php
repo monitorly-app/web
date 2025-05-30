@@ -12,32 +12,8 @@ class ProjectAccess
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $projectId = $request->route('project');
+        $project = $request->route('project');
         $user = $request->user();
-
-        // Add debugging
-        Log::info('Project Access Middleware', [
-            'projectId' => $projectId,
-            'type' => gettype($projectId),
-            'url' => $request->url()
-        ]);
-
-        // If the parameter is already a Project model instance
-        if ($projectId instanceof Project) {
-            $project = $projectId;
-        } else {
-            // Find the project by ID
-            $project = Project::find($projectId);
-
-            // Project not found
-            if (!$project) {
-                Log::error('Project not found', ['projectId' => $projectId]);
-                abort(404, 'Project not found');
-            }
-
-            // Replace the parameter with the full model
-            $request->route()->setParameter('project', $project);
-        }
 
         // Check if user has access to this project
         $isMember = $project->members()->where('user_id', $user->id)->exists();

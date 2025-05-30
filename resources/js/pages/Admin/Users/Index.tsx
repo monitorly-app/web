@@ -51,7 +51,7 @@ export default function UsersIndex({ users }: Props) {
 
     const handleDelete = () => {
         if (userToDelete) {
-            destroy(route('users.destroy', userToDelete.id), {
+            destroy(route('admin.users.destroy', userToDelete.id), {
                 onSuccess: () => setUserToDelete(null),
             });
         }

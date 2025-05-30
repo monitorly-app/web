@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Models\Plan;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,7 +45,7 @@ class PlanController extends Controller
 
         Plan::create($validated);
 
-        return redirect()->route('plans.index')->with('success', 'Plan created successfully.');
+        return redirect()->route('admin.plans.index')->with('success', 'Plan created successfully.');
     }
 
     /**
@@ -73,7 +74,7 @@ class PlanController extends Controller
 
         $plan->update($validated);
 
-        return redirect()->route('plans.index')->with('success', 'Plan updated successfully.');
+        return redirect()->route('admin.plans.index')->with('success', 'Plan updated successfully.');
     }
 
     /**
@@ -83,11 +84,11 @@ class PlanController extends Controller
     {
         // Prevent deletion of plans with users
         if ($plan->users()->count() > 0) {
-            return redirect()->route('plans.index')->with('error', 'This plan cannot be deleted because it has users.');
+            return redirect()->route('admin.plans.index')->with('error', 'This plan cannot be deleted because it has users.');
         }
 
         $plan->delete();
 
-        return redirect()->route('plans.index')->with('success', 'Plan deleted successfully.');
+        return redirect()->route('admin.plans.index')->with('success', 'Plan deleted successfully.');
     }
 }

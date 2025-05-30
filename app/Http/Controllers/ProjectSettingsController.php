@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Plan;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProjectSettingsController extends Controller
@@ -14,9 +14,13 @@ class ProjectSettingsController extends Controller
      */
     public function index(Project $project)
     {
+        // Vérifier que l'utilisateur est propriétaire
+        if ($project->owner_id !== Auth::id()) {
+            return redirect()->route('projects.dashboard', $project)->with('error', 'Only project owners can access settings.');
+        }
+
         return Inertia::render('User/Projects/Settings', [
-            'project' => $project->load('plan'),
-            'availablePlans' => Plan::all(),
+            'project' => $project,
         ]);
     }
 
@@ -25,6 +29,11 @@ class ProjectSettingsController extends Controller
      */
     public function update(Request $request, Project $project)
     {
+        // Vérifier que l'utilisateur est propriétaire
+        if ($project->owner_id !== Auth::id()) {
+            return redirect()->back()->with('error', 'Only project owners can update project details.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -36,37 +45,24 @@ class ProjectSettingsController extends Controller
     }
 
     /**
-     * Mettre à jour le plan du projet
-     */
-    public function updatePlan(Request $request, Project $project)
-    {
-        $validated = $request->validate([
-            'plan_id' => 'required|exists:plans,id',
-        ]);
-
-        $project->update([
-            'plan_id' => $validated['plan_id'],
-        ]);
-
-        // Logique de facturation à ajouter ici
-
-        return redirect()->back()->with('success', 'Project plan updated successfully');
-    }
-
-    /**
      * Supprimer le projet
      */
-    public function destroy(Project $project)
+    public function destroy(Request $request, Project $project)
     {
-        // Vérifier que l'utilisateur est bien le propriétaire
-        if ($project->owner_id !== auth()->id()) {
+        // Vérifier que l'utilisateur est propriétaire
+        if ($project->owner_id !== Auth::id()) {
             return redirect()->back()->with('error', 'Only the owner can delete this project');
         }
 
+        // Valider la confirmation
+        $request->validate([
+            'confirmation' => 'required|string|in:' . $project->name,
+        ]);
+
         // Supprimer les éventuelles relations
         $project->members()->detach();
-        // Ajouter ici d'autres suppressions liées
 
+        // Supprimer le projet
         $project->delete();
 
         return redirect()->route('projects.select')->with('success', 'Project deleted successfully');
