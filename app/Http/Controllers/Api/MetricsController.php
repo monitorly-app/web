@@ -18,7 +18,17 @@ class MetricsController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+
+        Log::info('=== METRICS ENDPOINT HIT ===', [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'project_id' => $request->route('project_id'),
+            'headers' => $request->headers->all(),
+            'body_preview' => substr($request->getContent(), 0, 200)
+        ]);
         try {
+
+
             // 1. Validation de base
             $validator = Validator::make($request->all(), [
                 'machine_name' => 'required|string|max:255',
