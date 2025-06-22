@@ -167,13 +167,17 @@ class ProjectServersController extends Controller
             'agent_version' => $server->agent_version,
             'token' => $server->token,
             'install_command' => $server->getInstallCommand(),
+            'install_script_url' => $server->getInstallScriptUrl(), // Nouveau
             'metrics' => $server->getCurrentMetrics(),
             'system_info' => $server->getFormattedSystemInfo(),
             'created_at' => $server->created_at->toISOString(),
         ];
 
         return Inertia::render('User/Projects/Servers/Show', [
-            'project' => $project,
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+            ],
             'server' => $serverData,
             'permissions' => $permissions,
         ]);

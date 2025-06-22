@@ -12,6 +12,7 @@ import {
     Activity,
     ArrowLeft,
     CheckCircle,
+    Clock,
     Copy,
     Cpu,
     Edit,
@@ -20,7 +21,6 @@ import {
     HardDrive,
     MemoryStick,
     Network,
-    RefreshCw,
     Server,
     Terminal,
     Trash,
@@ -89,6 +89,8 @@ export default function ServersShow({ project, server, permissions }: Props) {
     const [showToken, setShowToken] = useState(false);
     const [showInstallCommand, setShowInstallCommand] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'command' | 'script' | 'manual'>('command');
 
     // Update form
     const updateForm = useForm({
@@ -438,31 +440,6 @@ export default function ServersShow({ project, server, permissions }: Props) {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <p className="text-sm font-medium">Server Token</p>
-                                    <div className="flex items-center space-x-2">
-                                        <Input value={showToken ? server.token : '•'.repeat(20)} readOnly className="bg-muted font-mono text-xs" />
-                                        <Button variant="outline" size="sm" onClick={() => setShowToken(!showToken)}>
-                                            {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(server.token)}>
-                                            <Copy className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    {permissions.canManageServers && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="mt-2 w-full"
-                                            onClick={handleRegenerateToken}
-                                            disabled={regenerateTokenForm.processing}
-                                        >
-                                            <RefreshCw className={`mr-2 h-4 w-4 ${regenerateTokenForm.processing ? 'animate-spin' : ''}`} />
-                                            Regenerate Token
-                                        </Button>
-                                    )}
-                                </div>
-
-                                <div>
                                     <p className="text-sm font-medium">Agent Version</p>
                                     <p className="text-muted-foreground text-sm">{server.agent_version || 'Not connected'}</p>
                                 </div>
@@ -488,33 +465,315 @@ export default function ServersShow({ project, server, permissions }: Props) {
                                     <Terminal className="mr-2 h-5 w-5" />
                                     Agent Installation
                                 </CardTitle>
-                                <CardDescription>Command to install the monitoring agent</CardDescription>
+                                <CardDescription>Install the monitoring agent on your server</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
-                                    <div className="flex items-center space-x-2">
-                                        <Button variant="outline" size="sm" onClick={() => setShowInstallCommand(!showInstallCommand)}>
-                                            {showInstallCommand ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                            {showInstallCommand ? 'Hide' : 'Show'} Command
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(server.install_command)}>
-                                            <Copy className="mr-2 h-4 w-4" />
-                                            Copy
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium">Installation Status</p>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                {server.agent_version ? (
+                                                    <>
+                                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                                        <span className="text-sm text-green-600">Installed (v{server.agent_version})</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Clock className="h-4 w-4 text-yellow-600" />
+                                                        <span className="text-sm text-yellow-600">Agent not installed</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <Button onClick={() => setIsInstallModalOpen(true)} className="flex items-center gap-2">
+                                            <Terminal className="h-4 w-4" />
+                                            Install Agent
                                         </Button>
                                     </div>
 
-                                    {showInstallCommand && (
-                                        <div className="bg-muted rounded-md p-3">
-                                            <code className="text-xs break-all">{server.install_command}</code>
+                                    {server.agent_version && (
+                                        <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                                <span className="text-sm text-green-800">
+                                                    Agent is installed and sending metrics. Last seen: {formatLastSeen(server.last_seen)}
+                                                </span>
+                                            </div>
                                         </div>
                                     )}
-
-                                    <p className="text-muted-foreground text-xs">
-                                        Run this command on your server as root to install the monitoring agent.
-                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Installation Modal */}
+                        <Dialog open={isInstallModalOpen} onOpenChange={setIsInstallModalOpen}>
+                            <DialogContent className="max-h-[90vh] w-[80vw] max-w-[800px] overflow-y-auto md:max-w-[1200px] lg:max-w-[1400px] xl:max-w-[1600px]">
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                        <Terminal className="h-5 w-5" />
+                                        Install Monitoring Agent
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Install and configure the Monitorly agent on your server: <strong>{server.name}</strong>
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div className="space-y-6">
+                                    {/* Tabs */}
+                                    <div className="flex space-x-1 border-b">
+                                        <button
+                                            onClick={() => setActiveTab('command')}
+                                            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                                                activeTab === 'command'
+                                                    ? 'border-blue-500 text-blue-600'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            🚀 Quick Install
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('script')}
+                                            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                                                activeTab === 'script'
+                                                    ? 'border-blue-500 text-blue-600'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            📜 View Script
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('manual')}
+                                            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                                                activeTab === 'manual'
+                                                    ? 'border-blue-500 text-blue-600'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            ⚙️ Manual Config
+                                        </button>
+                                    </div>
+
+                                    {/* Quick Install Tab */}
+                                    {activeTab === 'command' && (
+                                        <div className="space-y-4">
+                                            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                                <h3 className="mb-2 font-medium text-blue-900">One-Command Installation</h3>
+                                                <p className="mb-3 text-sm text-blue-800">
+                                                    This command will automatically install and configure the monitoring agent on your server.
+                                                </p>
+
+                                                <div className="mb-3 rounded-md bg-gray-900 p-3">
+                                                    <code className="text-sm break-all text-green-400">
+                                                        curl -sSL {window.location.origin}/install/{server.token} | bash
+                                                    </code>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        onClick={() =>
+                                                            copyToClipboard(`curl -sSL ${window.location.origin}/install/${server.token} | bash`)
+                                                        }
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Copy className="h-4 w-4" />
+                                                        Copy Command
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => setActiveTab('script')}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                        View Script Source
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {/* What it does */}
+                                            <div className="rounded-lg bg-gray-50 p-4">
+                                                <h4 className="mb-3 font-medium">🔧 What this script does:</h4>
+                                                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Downloads and installs Monitorly agent</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Configures with your project credentials</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Sets up automatic startup service</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Starts monitoring immediately</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Verifies installation success</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="text-green-600">✓</span>
+                                                        <span>Shows detailed status and logs</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Installation steps */}
+                                            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                                                <h4 className="mb-2 font-medium text-yellow-900">📋 Installation Steps:</h4>
+                                                <ol className="space-y-1 text-sm text-yellow-800">
+                                                    <li>
+                                                        <strong>1.</strong> SSH into your server:{' '}
+                                                        <code className="rounded bg-yellow-100 px-1">ssh user@{server.host}</code>
+                                                    </li>
+                                                    <li>
+                                                        <strong>2.</strong> Run the installation command (copy from above)
+                                                    </li>
+                                                    <li>
+                                                        <strong>3.</strong> Wait 1-2 minutes for metrics to appear
+                                                    </li>
+                                                    <li>
+                                                        <strong>4.</strong> Refresh this page to see live metrics
+                                                    </li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Script Tab */}
+                                    {activeTab === 'script' && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="font-medium">Installation Script Source</h3>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => window.open(`${window.location.origin}/install/${server.token}`, '_blank')}
+                                                >
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    Open in New Tab
+                                                </Button>
+                                            </div>
+
+                                            <div className="max-h-96 overflow-y-auto rounded-lg border-2 p-4">
+                                                <iframe
+                                                    src={`${window.location.origin}/install/${server.token}`}
+                                                    className="h-96 w-full text-green-400"
+                                                    style={{
+                                                        border: 'none',
+                                                        fontFamily: 'Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+                                                        fontSize: '12px',
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                                                <p className="text-sm text-blue-800">
+                                                    <strong>🔒 Security:</strong> This script is generated dynamically for your server and includes
+                                                    your specific credentials. You can review the entire script before running it.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Manual Tab */}
+                                    {activeTab === 'manual' && (
+                                        <div className="space-y-4">
+                                            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                                                <h3 className="mb-2 font-medium text-orange-900">⚙️ Manual Configuration</h3>
+                                                <p className="text-sm text-orange-800">
+                                                    For advanced users who prefer to install and configure manually.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div>
+                                                    <Label className="text-sm font-medium">API Endpoint:</Label>
+                                                    <div className="mt-1 flex gap-2">
+                                                        <Input
+                                                            value={`${window.location.origin}/api/projects/${project.id}/metrics`}
+                                                            readOnly
+                                                            className="font-mono text-xs"
+                                                        />
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                copyToClipboard(`${window.location.origin}/api/projects/${project.id}/metrics`)
+                                                            }
+                                                        >
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <Label className="text-sm font-medium">Project ID:</Label>
+                                                    <div className="mt-1 flex gap-2">
+                                                        <Input value={project.id} readOnly className="font-mono text-xs" />
+                                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(project.id)}>
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <Label className="text-sm font-medium">Server Token:</Label>
+                                                    <div className="mt-1 flex gap-2">
+                                                        <Input
+                                                            value={showToken ? server.token : '•'.repeat(20)}
+                                                            readOnly
+                                                            className="font-mono text-xs"
+                                                        />
+                                                        <Button variant="outline" size="sm" onClick={() => setShowToken(!showToken)}>
+                                                            {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                        </Button>
+                                                        {showToken && (
+                                                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(server.token)}>
+                                                                <Copy className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-lg bg-gray-50 p-4">
+                                                <h4 className="mb-2 font-medium">Manual Installation Steps:</h4>
+                                                <ol className="space-y-2 text-sm">
+                                                    <li>
+                                                        <strong>1.</strong> Install the agent:{' '}
+                                                        <code className="rounded bg-gray-200 px-1">
+                                                            curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash
+                                                        </code>
+                                                    </li>
+                                                    <li>
+                                                        <strong>2.</strong> Edit config:{' '}
+                                                        <code className="rounded bg-gray-200 px-1">vim ~/.monitorly/config.yaml</code>
+                                                    </li>
+                                                    <li>
+                                                        <strong>3.</strong> Update the API settings with the values above
+                                                    </li>
+                                                    <li>
+                                                        <strong>4.</strong> Restart:{' '}
+                                                        <code className="rounded bg-gray-200 px-1">sudo systemctl restart monitorly-probe</code>
+                                                    </li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end border-t pt-4">
+                                    <Button variant="outline" onClick={() => setIsInstallModalOpen(false)}>
+                                        Close
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </div>
             </div>

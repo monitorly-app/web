@@ -5,7 +5,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\PlanController;
-
+use App\Http\Controllers\InstallController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectDashboardController;
@@ -104,6 +104,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
     });
 });
+Route::get('/install/{serverToken}', [InstallController::class, 'generateScript'])
+    ->name('install.script');
 
 // Admin routes
 Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {

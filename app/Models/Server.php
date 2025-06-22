@@ -139,21 +139,18 @@ class Server extends Model
     public function getInstallCommand(): string
     {
         $baseUrl = config('app.url');
-        $projectId = $this->project_id;
-        $apiKey = $this->project->api_key;
-        $encryptionKey = $this->project->encryption_key;
 
-        return "curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash && " .
-            "sudo vim /home/\$USER/.monitorly/config.yaml\n\n" .
-            "# Configuration à modifier :\n" .
-            "sender:\n" .
-            "  target: \"api\"\n" .
-            "api:\n" .
-            "  url: \"{$baseUrl}/api/projects/{$projectId}/metrics\"\n" .
-            "  project_id: \"{$projectId}\"\n" .
-            "  application_token: \"{$apiKey}\"\n" .
-            "  encryption_key: \"{$encryptionKey}\"\n\n" .
-            "# Puis redémarrer : sudo systemctl restart monitorly-probe";
+        return "curl -sSL {$baseUrl}/install/{$this->token} | bash";
+    }
+
+    /**
+     * Obtenir l'URL du script d'installation
+     */
+    public function getInstallScriptUrl(): string
+    {
+        $baseUrl = config('app.url');
+
+        return "{$baseUrl}/install/{$this->token}";
     }
 
     /**
