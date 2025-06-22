@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('metrics', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('server_id')->constrained()->onDelete('cascade');
+            $table->foreignUuid('server_id')->constrained('servers')->onDelete('cascade');
             $table->string('category', 50)->index(); // system, network, etc.
             $table->string('name', 100)->index(); // cpu, ram, disk, etc.
             $table->decimal('value', 15, 4); // Valeur de la métrique
