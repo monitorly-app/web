@@ -3,10 +3,11 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\MetricsController;
+use Illuminate\Support\Facades\Log;
 
 // DEBUG: Log toutes les requêtes API
 Route::any('{any}', function ($any, Request $request) {
-    \Log::info('=== ANY API REQUEST ===', [
+    Log::info('=== ANY API REQUEST ===', [
         'path' => $any,
         'method' => $request->method(),
         'full_url' => $request->fullUrl(),
