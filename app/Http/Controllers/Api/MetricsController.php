@@ -19,17 +19,18 @@ class MetricsController extends Controller
     public function store(Request $request): JsonResponse
     {
 
-        Log::info('=== METRICS ENDPOINT HIT ===', [
+        Log::info('=== COMPLETE DEBUG ===', [
             'method' => $request->method(),
             'url' => $request->fullUrl(),
+            'path' => $request->path(),
+            'route_params' => $request->route()?->parameters(),
             'project_id' => $request->route('project_id'),
             'headers' => $request->headers->all(),
-            'body_preview' => substr($request->getContent(), 0, 200)
-        ]);
-
-        Log::info('=== RAW REQUEST BODY ===', [
             'raw_body' => $request->getContent(),
-            'parsed_body' => json_decode($request->getContent(), true)
+            'parsed_body' => $request->all(),
+            'is_json' => $request->isJson(),
+            'content_type' => $request->header('Content-Type'),
+            'user_agent' => $request->header('User-Agent')
         ]);
 
         try {
