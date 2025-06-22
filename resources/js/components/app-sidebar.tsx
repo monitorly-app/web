@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Package, Settings, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Package, Server, Settings, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -23,7 +23,7 @@ export function AppSidebar() {
 
     // Fonction pour vérifier les permissions dans le projet
     const getProjectPermissions = () => {
-        if (!currentProject) return { canViewOverview: false, canManageMembers: false, canManageSettings: false };
+        if (!currentProject) return { canViewOverview: false, canManageMembers: false, canManageSettings: false, canViewServers: false };
 
         const user = auth.user;
 
@@ -41,6 +41,7 @@ export function AppSidebar() {
             canViewOverview: true, // Tous les membres peuvent voir l'overview
             canManageMembers: isProjectOwner || isProjectAdmin,
             canManageSettings: isProjectOwner, // Seul l'owner peut gérer les settings
+            canViewServers: isProjectOwner || isProjectAdmin || userProjectRole === 3,
         };
     };
 
@@ -77,6 +78,14 @@ export function AppSidebar() {
                 title: 'Members',
                 href: `/projects/${currentProject.id}/members`,
                 icon: Users,
+            });
+        }
+
+        if (permissions.canViewServers) {
+            projectNavItems.push({
+                title: 'Servers',
+                href: `/projects/${currentProject.id}/servers`,
+                icon: Server,
             });
         }
 

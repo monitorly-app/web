@@ -16,13 +16,12 @@ class ProjectController extends Controller
      */
     public function select()
     {
-        $user = Auth::user();
-        $projects = $user->projects()->with('owner')->get();
-        $userPlan = $user->plan;
+        $user = Auth::user()->load('plan');
+        $projects = $user->ownedProjects()->get();
 
         return Inertia::render('User/Projects/Select', [
             'projects' => $projects,
-            'userPlan' => $userPlan,
+            'userPlan' => $user->plan,
             'projectsCount' => $projects->count(),
         ]);
     }
@@ -32,12 +31,11 @@ class ProjectController extends Controller
      */
     public function create()
     {
-        $user = Auth::user();
+        $user = Auth::user()->load('plan');
         $userPlan = $user->plan;
         $currentProjectsCount = $user->ownedProjects()->count();
 
-        // Vérifier si l'utilisateur peut créer un nouveau projet
-        if ($userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
+        if ($userPlan && $userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
             return redirect()->route('projects.select')
                 ->with('error', "You have reached the maximum number of projects ({$userPlan->max_projects}) for your {$userPlan->name} plan. Please upgrade to create more projects.");
         }
@@ -56,12 +54,12 @@ class ProjectController extends Controller
      */
     public function store(Request $request)
     {
-        $user = Auth::user();
+        $user = Auth::user()->load('plan');
         $userPlan = $user->plan;
         $currentProjectsCount = $user->ownedProjects()->count();
 
         // Double vérification côté serveur
-        if ($userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
+        if ($userPlan && $userPlan->max_projects !== -1 && $currentProjectsCount >= $userPlan->max_projects) {
             return redirect()->back()
                 ->with('error', "You have reached the maximum number of projects ({$userPlan->max_projects}) for your {$userPlan->name} plan.");
         }

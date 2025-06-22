@@ -53,7 +53,7 @@ export interface Project {
     description?: string;
     owner_id: number;
     owner?: User;
-    members?: ProjectMember[]; // Utiliser ProjectMember au lieu de User
+    members?: ProjectMember[];
     created_at: string;
     updated_at: string;
 }

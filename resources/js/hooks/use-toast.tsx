@@ -75,7 +75,11 @@ export function useToast() {
         return createPortal(
             <div className="fixed top-4 right-4 z-50 max-w-sm space-y-2">
                 {toasts.map((toast) => (
-                    <Alert key={toast.id} variant={getVariant(toast.type)} className="animate-in slide-in-from-top-2 relative pr-10 shadow-lg">
+                    <Alert
+                        key={toast.id}
+                        variant={getVariant(toast.type)}
+                        className="animate-in slide-in-from-top-2 bg-background relative z-50 pr-10 shadow-lg"
+                    >
                         {getIcon(toast.type)}
                         <AlertDescription className="pr-2">{toast.message}</AlertDescription>
                         <button

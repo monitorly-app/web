@@ -25,8 +25,7 @@ class ProjectDashboardController extends Controller
 
         // Basic project statistics
         $stats = [
-            'members_count' => $project->members()->count() + 1, // +1 for owner
-            // Add other stats as needed
+            'members_count' => $project->members()->count() + 1,
         ];
 
         // On change juste la vue ici: User/Projects/Overview au lieu de Dashboard!

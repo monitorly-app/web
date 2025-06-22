@@ -28,7 +28,7 @@ class ProjectSettingsController extends Controller
                 'api_key' => $project->api_key,
                 'encryption_key' => $project->encryption_key,
                 'api_usage_stats' => $project->getApiUsageStats(),
-                'created_at' => $project->created_at->toISOString(),
+                'created_at' => $project->created_at->format('c'), // ✅ Correction ici
             ],
         ]);
     }

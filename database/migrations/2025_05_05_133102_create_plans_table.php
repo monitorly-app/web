@@ -20,6 +20,7 @@ return new class extends Migration
             $table->integer('max_users');
             $table->integer('max_projects')->default(1);
             $table->integer('max_metrics')->default(-1)->comment('-1 means unlimited');
+            $table->integer('max_alerts')->default(-1)->comment('-1 means unlimited');
             $table->text('description')->nullable();
             $table->timestamps();
         });

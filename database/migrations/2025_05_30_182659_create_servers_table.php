@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('token')->unique();
             $table->enum('status', ['pending', 'online', 'offline', 'warning', 'error'])->default('pending');
+            $table->bigInteger('boot_time')->nullable();
             $table->timestamp('last_seen_at')->nullable();
             $table->json('last_metrics')->nullable();
             $table->string('agent_version')->nullable();

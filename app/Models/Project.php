@@ -31,12 +31,12 @@ class Project extends Model
     protected $casts = [
         'api_key_last_used_at' => 'datetime',
         'api_requests_reset_date' => 'date',
+        'api_requests_count' => 'integer',
     ];
 
     protected $hidden = [
         'encryption_key',
     ];
-
 
     /**
      * Relation with the project owner
@@ -46,7 +46,6 @@ class Project extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-
     /**
      * Relation with the project members
      */
@@ -55,6 +54,14 @@ class Project extends Model
         return $this->belongsToMany(User::class, 'project_user')
             ->withPivot('project_role_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Relation with the project servers
+     */
+    public function servers(): HasMany
+    {
+        return $this->hasMany(Server::class);
     }
 
     /**
@@ -73,16 +80,8 @@ class Project extends Model
         return $this->owner_id === $user->id ||
             $this->members()
             ->where('user_id', $user->id)
-            ->where('project_role_id', 1) // Assuming 1 is admin role
+            ->whereIn('project_role_id', [1, 2]) // Owner ou Admin roles
             ->exists();
-    }
-
-    /**
-     * Relation with the project servers
-     */
-    public function servers(): HasMany
-    {
-        return $this->hasMany(Server::class);
     }
 
     /**
@@ -95,6 +94,7 @@ class Project extends Model
             'api_key' => $newApiKey,
             'api_requests_count' => 0, // Reset le compteur
             'api_requests_reset_date' => now()->toDateString(),
+            'api_key_last_used_at' => null, // Reset last used
         ]);
         return $newApiKey;
     }
@@ -122,6 +122,7 @@ class Project extends Model
             'encryption_key' => $encryptionKey,
             'api_requests_count' => 0,
             'api_requests_reset_date' => now()->toDateString(),
+            'api_key_last_used_at' => null,
         ]);
 
         return [
@@ -157,7 +158,7 @@ class Project extends Model
         }
 
         // Reset le compteur si on change de mois
-        if ($this->api_requests_reset_date->month !== now()->month) {
+        if ($this->api_requests_reset_date && $this->api_requests_reset_date->month !== now()->month) {
             $this->update([
                 'api_requests_count' => 0,
                 'api_requests_reset_date' => now()->toDateString(),
@@ -176,10 +177,10 @@ class Project extends Model
      */
     private function getApiRequestsLimit($plan): int
     {
-        // Estimation basée sur la fréquence et le nombre de serveurs
+        // Estimation basée sur la fréquence et le nombre de serveurs max
         return match ($plan->name) {
-            'Free' => 50000,    // ~1 serveur * 1440 min/jour * 30 jours = 43200
-            'Pro' => 500000,    // ~10 serveurs * 96 req/jour * 30 jours = 28800 par serveur
+            'Free' => 50000,    // ~1 serveur * 1440 req/jour * 30 jours
+            'Pro' => 500000,    // ~10 serveurs * 1440 req/jour * 30 jours  
             'Business' => -1,   // Illimité
             default => 10000,
         };
@@ -195,11 +196,11 @@ class Project extends Model
         $limit = $this->getApiRequestsLimit($plan);
 
         return [
-            'requests_this_month' => $this->api_requests_count,
+            'requests_this_month' => $this->api_requests_count ?? 0,
             'monthly_limit' => $limit,
-            'limit_percentage' => $limit === -1 ? 0 : ($this->api_requests_count / $limit) * 100,
-            'last_used' => $this->api_key_last_used_at?->toISOString(),
-            'reset_date' => $this->api_requests_reset_date->toISOString(),
+            'limit_percentage' => $limit === -1 ? 0 : (($this->api_requests_count ?? 0) / $limit) * 100,
+            'last_used' => $this->api_key_last_used_at?->format('c'),
+            'reset_date' => $this->api_requests_reset_date?->format('c') ?? now()->format('c'),
         ];
     }
 
@@ -209,14 +210,14 @@ class Project extends Model
     public function decryptData(string $encryptedData): ?array
     {
         try {
-            // Utiliser la clé de chiffrement pour déchiffrer
-            // TODO: Implémenter le déchiffrement selon l'algo choisi
+            $iv = substr(hash('sha256', $this->encryption_key), 0, 16);
+
             $decrypted = openssl_decrypt(
                 base64_decode($encryptedData),
                 'AES-256-CBC',
                 $this->encryption_key,
                 0,
-                substr(hash('sha256', $this->encryption_key), 0, 16)
+                $iv
             );
 
             return $decrypted ? json_decode($decrypted, true) : null;
@@ -232,15 +233,33 @@ class Project extends Model
     public function encryptData(array $data): string
     {
         $json = json_encode($data);
+        $iv = substr(hash('sha256', $this->encryption_key), 0, 16);
+
         $encrypted = openssl_encrypt(
             $json,
             'AES-256-CBC',
             $this->encryption_key,
             0,
-            substr(hash('sha256', $this->encryption_key), 0, 16)
+            $iv
         );
 
         return base64_encode($encrypted);
+    }
+
+    /**
+     * Obtenir les statistiques du projet
+     */
+    public function getProjectStats(): array
+    {
+        $servers = $this->servers()->active();
+
+        return [
+            'total_servers' => $servers->count(),
+            'online_servers' => $servers->online()->count(),
+            'offline_servers' => $servers->offline()->count(),
+            'warning_servers' => $servers->where('status', 'warning')->count(),
+            'total_members' => $this->members()->count() + 1, // +1 pour l'owner
+        ];
     }
 
     /**
@@ -257,6 +276,9 @@ class Project extends Model
             if (!$project->encryption_key) {
                 $project->encryption_key = Str::random(64);
             }
+            // Initialiser les compteurs
+            $project->api_requests_count = 0;
+            $project->api_requests_reset_date = now()->toDateString();
         });
     }
 }

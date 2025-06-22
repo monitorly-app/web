@@ -6,14 +6,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Server extends Model
 {
     use HasFactory, HasUuids;
-
-    protected $keyType = 'string';
-    public $incrementing = false;
 
     protected $fillable = [
         'project_id',
@@ -28,27 +26,23 @@ class Server extends Model
         'agent_version',
         'system_info',
         'is_active',
+        'boot_time',
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'last_seen_at' => 'datetime',
         'last_metrics' => 'array',
         'system_info' => 'array',
-        'is_active' => 'boolean',
-        'port' => 'integer',
     ];
 
-    /**
-     * Boot the model
-     */
     protected static function boot()
     {
         parent::boot();
 
-        // Générer automatiquement un token unique lors de la création
         static::creating(function ($server) {
-            if (!$server->token) {
-                $server->token = 'srv_' . Str::random(32);
+            if (empty($server->token)) {
+                $server->token = Str::random(64);
             }
         });
     }
@@ -62,13 +56,114 @@ class Server extends Model
     }
 
     /**
-     * Vérifier si le serveur est en ligne
+     * Relation avec les métriques
+     */
+    public function metrics(): HasMany
+    {
+        return $this->hasMany(Metric::class);
+    }
+
+    /**
+     * Récupérer les métriques récentes (dernières 24h)
+     */
+    public function recentMetrics(): HasMany
+    {
+        return $this->metrics()->where('timestamp', '>=', now()->subHours(24));
+    }
+
+    /**
+     * Récupérer les métriques actuelles (dernières valeurs connues)
+     */
+    public function getCurrentMetrics(): array
+    {
+        // Récupérer la dernière métrique de chaque type
+        $cpuMetric = $this->getLastMetric('system', 'cpu');
+        $ramMetric = $this->getLastMetric('system', 'ram');
+        $diskMetric = $this->getLastMetric('system', 'disk');
+        $uptimeMetric = $this->getLastMetric('system', 'uptime');
+        $loadMetric = $this->getLastMetric('system', 'load_average');
+        $networkInMetric = $this->getLastMetric('network', 'bytes_recv');
+        $networkOutMetric = $this->getLastMetric('network', 'bytes_sent');
+        $processesMetric = $this->getLastMetric('system', 'processes');
+        $connectionsMetric = $this->getLastMetric('network', 'connections');
+
+        return [
+            'cpu_usage' => $cpuMetric ? $cpuMetric->value : 0,
+            'memory_usage' => $ramMetric ? $ramMetric->value : 0,
+            'disk_usage' => $diskMetric ? $diskMetric->value : 0,
+            'uptime' => $uptimeMetric ? $uptimeMetric->value : 0,
+            'load_average' => $loadMetric && isset($loadMetric->metadata['load_avg']) ?
+                json_decode($loadMetric->metadata['load_avg'], true) : [0, 0, 0],
+            'network_in' => $networkInMetric ? $networkInMetric->value : 0,
+            'network_out' => $networkOutMetric ? $networkOutMetric->value : 0,
+            'processes_count' => $processesMetric ? $processesMetric->value : 0,
+            'connections_count' => $connectionsMetric ? $connectionsMetric->value : 0,
+        ];
+    }
+
+    /**
+     * Obtenir la dernière métrique d'un type donné
+     */
+    public function getLastMetric(string $category, string $name)
+    {
+        return $this->metrics()
+            ->where('category', $category)
+            ->where('name', $name)
+            ->latest('timestamp')
+            ->first();
+    }
+
+    /**
+     * Obtenir les informations système formatées
+     */
+    public function getFormattedSystemInfo(): array
+    {
+        $systemInfo = $this->system_info ?? [];
+
+        return [
+            'os' => $systemInfo['os'] ?? 'Unknown',
+            'kernel' => $systemInfo['kernel'] ?? 'Unknown',
+            'cpu_model' => $systemInfo['cpu_model'] ?? 'Unknown',
+            'cpu_cores' => $systemInfo['cpu_cores'] ?? 0,
+            'total_memory' => $systemInfo['total_memory'] ?? 0,
+            'total_disk' => $systemInfo['total_disk'] ?? 0,
+            'total_memory_formatted' => isset($systemInfo['total_memory']) ? $this->formatBytes($systemInfo['total_memory']) : 'Unknown',
+            'total_disk_formatted' => isset($systemInfo['total_disk']) ? $this->formatBytes($systemInfo['total_disk']) : 'Unknown',
+            'hostname' => $systemInfo['hostname'] ?? $this->name,
+        ];
+    }
+
+    /**
+     * Générer la commande d'installation pour ce serveur
+     */
+    public function getInstallCommand(): string
+    {
+        $baseUrl = config('app.url');
+        $projectId = $this->project_id;
+        $apiKey = $this->project->api_key;
+        $encryptionKey = $this->project->encryption_key;
+
+        return "curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash && " .
+            "sudo vim /home/\$USER/.monitorly/config.yaml\n\n" .
+            "# Configuration à modifier :\n" .
+            "sender:\n" .
+            "  target: \"api\"\n" .
+            "api:\n" .
+            "  url: \"{$baseUrl}/api/projects/{$projectId}/metrics\"\n" .
+            "  project_id: \"{$projectId}\"\n" .
+            "  application_token: \"{$apiKey}\"\n" .
+            "  encryption_key: \"{$encryptionKey}\"\n\n" .
+            "# Puis redémarrer : sudo systemctl restart monitorly-probe";
+    }
+
+    /**
+     * Vérifier si le serveur est en ligne (dernière activité < 10 minutes)
      */
     public function isOnline(): bool
     {
         return $this->status === 'online' &&
             $this->last_seen_at &&
-            $this->last_seen_at->diffInMinutes(now()) <= 5; // 5 minutes de tolérance
+            $this->last_seen_at->gt(now()->subMinutes(10));
     }
 
     /**
@@ -78,105 +173,17 @@ class Server extends Model
     {
         return $this->status === 'offline' ||
             !$this->last_seen_at ||
-            $this->last_seen_at->diffInMinutes(now()) > 10; // 10 minutes = hors ligne
+            $this->last_seen_at->lt(now()->subMinutes(10));
     }
 
     /**
-     * Obtenir le statut formaté avec couleur
-     */
-    public function getStatusBadge(): array
-    {
-        return match ($this->status) {
-            'online' => ['label' => 'Online', 'color' => 'green'],
-            'warning' => ['label' => 'Warning', 'color' => 'yellow'],
-            'offline' => ['label' => 'Offline', 'color' => 'red'],
-            'error' => ['label' => 'Error', 'color' => 'red'],
-            'pending' => ['label' => 'Pending', 'color' => 'gray'],
-            default => ['label' => 'Unknown', 'color' => 'gray'],
-        };
-    }
-
-    /**
-     * Obtenir les métriques actuelles avec valeurs par défaut
-     */
-    public function getCurrentMetrics(): array
-    {
-        $defaultMetrics = [
-            'cpu_usage' => 0,
-            'memory_usage' => 0,
-            'disk_usage' => 0,
-            'network_in' => 0,
-            'network_out' => 0,
-            'load_average' => [0, 0, 0],
-            'uptime' => 0,
-        ];
-
-        return array_merge($defaultMetrics, $this->last_metrics ?? []);
-    }
-
-    /**
-     * Mettre à jour les métriques du serveur
-     */
-    public function updateMetrics(array $metrics): void
-    {
-        $this->update([
-            'last_metrics' => $metrics,
-            'last_seen_at' => now(),
-            'status' => $this->determineStatusFromMetrics($metrics),
-        ]);
-    }
-
-    /**
-     * Déterminer le statut en fonction des métriques
-     */
-    private function determineStatusFromMetrics(array $metrics): string
-    {
-        // Si CPU > 90% ou Mémoire > 95% ou Disque > 95% = warning
-        if (
-            ($metrics['cpu_usage'] ?? 0) > 90 ||
-            ($metrics['memory_usage'] ?? 0) > 95 ||
-            ($metrics['disk_usage'] ?? 0) > 95
-        ) {
-            return 'warning';
-        }
-
-        return 'online';
-    }
-
-    /**
-     * Obtenir les informations système formatées
-     */
-    public function getFormattedSystemInfo(): array
-    {
-        $defaultInfo = [
-            'os' => 'Unknown',
-            'kernel' => 'Unknown',
-            'cpu_model' => 'Unknown',
-            'cpu_cores' => 0,
-            'total_memory' => 0,
-            'total_disk' => 0,
-        ];
-
-        return array_merge($defaultInfo, $this->system_info ?? []);
-    }
-
-    /**
-     * Générer un nouveau token
+     * Régénérer le token du serveur
      */
     public function regenerateToken(): string
     {
-        $newToken = 'srv_' . Str::random(32);
+        $newToken = Str::random(64);
         $this->update(['token' => $newToken]);
         return $newToken;
-    }
-
-    /**
-     * Obtenir la commande d'installation de l'agent
-     */
-    public function getInstallCommand(): string
-    {
-        $baseUrl = config('app.url');
-        return "curl -sSL {$baseUrl}/agent/install.sh | bash -s -- {$this->token}";
     }
 
     /**
@@ -188,23 +195,23 @@ class Server extends Model
     }
 
     /**
-     * Scope pour les serveurs en ligne
+     * Obtenir les métriques par catégorie
      */
-    public function scopeOnline($query)
+    public function getMetricsByCategory(string $category): HasMany
     {
-        return $query->where('status', 'online')
-            ->where('last_seen_at', '>=', now()->subMinutes(5));
+        return $this->metrics()->where('category', $category);
     }
 
     /**
-     * Scope pour les serveurs hors ligne
+     * Formater les bytes en unités lisibles
      */
-    public function scopeOffline($query)
+    private function formatBytes(int $bytes): string
     {
-        return $query->where(function ($q) {
-            $q->where('status', 'offline')
-                ->orWhere('last_seen_at', '<', now()->subMinutes(10))
-                ->orWhereNull('last_seen_at');
-        });
+        if ($bytes === 0) return '0 B';
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $unitIndex = floor(log($bytes, 1024));
+
+        return round($bytes / pow(1024, $unitIndex), 2) . ' ' . $units[$unitIndex];
     }
 }
