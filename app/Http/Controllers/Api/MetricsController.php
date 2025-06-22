@@ -26,6 +26,12 @@ class MetricsController extends Controller
             'headers' => $request->headers->all(),
             'body_preview' => substr($request->getContent(), 0, 200)
         ]);
+
+        Log::info('=== RAW REQUEST BODY ===', [
+            'raw_body' => $request->getContent(),
+            'parsed_body' => json_decode($request->getContent(), true)
+        ]);
+
         try {
 
 
