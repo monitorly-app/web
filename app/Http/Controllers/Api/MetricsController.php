@@ -19,20 +19,6 @@ class MetricsController extends Controller
     public function store(Request $request): JsonResponse
     {
 
-        Log::info('=== COMPLETE DEBUG ===', [
-            'method' => $request->method(),
-            'url' => $request->fullUrl(),
-            'path' => $request->path(),
-            'route_params' => $request->route()?->parameters(),
-            'project_id' => $request->route('project_id'),
-            'headers' => $request->headers->all(),
-            'raw_body' => $request->getContent(),
-            'parsed_body' => $request->all(),
-            'is_json' => $request->isJson(),
-            'content_type' => $request->header('Content-Type'),
-            'user_agent' => $request->header('User-Agent')
-        ]);
-
         try {
 
 
@@ -43,7 +29,7 @@ class MetricsController extends Controller
                 'metrics.*.timestamp' => 'required|string',
                 'metrics.*.category' => 'required|string',
                 'metrics.*.name' => 'required|string',
-                'metrics.*.value' => 'required|numeric',
+                'metrics.*.value' => 'required', // ← Enlève |numeric pour accepter objet ou nombre
                 'boot_time' => 'nullable|integer',
                 'encrypted' => 'boolean',
                 'compressed' => 'boolean',
@@ -153,18 +139,25 @@ class MetricsController extends Controller
         $now = now();
 
         foreach ($metrics as $metric) {
+            // Traiter la valeur selon son type
+            $value = $metric['value'];
+
+            // Si c'est un objet (comme disk), prendre le pourcentage
+            if (is_array($value) && isset($value['percent'])) {
+                $value = $value['percent'];
+            }
+
             $metricsToInsert[] = [
                 'server_id' => $server->id,
                 'category' => $metric['category'],
                 'name' => $metric['name'],
-                'value' => $metric['value'],
-                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : null,
+                'value' => is_numeric($value) ? $value : 0,
+                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : (is_array($metric['value']) ? json_encode($metric['value']) : null),
                 'timestamp' => $metric['timestamp'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
         }
-
         // Insertion en lot pour les performances
         if (!empty($metricsToInsert)) {
             Metric::insert($metricsToInsert);
