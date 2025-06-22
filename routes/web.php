@@ -14,6 +14,7 @@ use App\Http\Controllers\ProjectMembersController;
 use App\Http\Controllers\ProjectServersController;
 use App\Http\Controllers\ProjectSettingsController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -132,3 +133,5 @@ require __DIR__ . '/settings.php';
 
 // Auth routes
 require __DIR__ . '/auth.php';
+
+require __DIR__ . '/debug.php';
