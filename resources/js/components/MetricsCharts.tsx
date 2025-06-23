@@ -26,9 +26,10 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
     const fetchMetricsData = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/projects/${project.id}/servers/${server.id}/metrics?days=${timeRange}`, {
+            const response = await fetch(`/projects/${project.id}/servers/${server.id}/metrics?days=${timeRange}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
 
