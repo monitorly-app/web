@@ -324,10 +324,10 @@ class ProjectServersController extends Controller
             abort(404);
         }
 
-        $permissions = $this->getUserProjectPermissions($project, Auth::user());
-        if (!$permissions['canViewServers']) {
-            abort(403);
-        }
+        // $permissions = $this->getUserProjectPermissions($project, Auth::user());
+        // if (!$permissions['canViewServers']) {
+        //     abort(403);
+        // }
 
         // Récupérer le nombre de jours depuis les paramètres
         $days = $request->input('days', 7);
