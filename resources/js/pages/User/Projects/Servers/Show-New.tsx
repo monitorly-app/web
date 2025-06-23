@@ -1,13 +1,15 @@
+import MetricsCharts from '@/components/MetricsCharts';
+import AgentInstallation from '@/components/server-details/AgentInstallation';
+import MetricsOverview from '@/components/server-details/MetricsOverview';
+import ServerConfiguration from '@/components/server-details/ServerConfiguration';
+import ServerDeleteModal from '@/components/server-details/ServerDeleteModal';
+import ServerEditModal from '@/components/server-details/ServerEditModal';
+import ServerHeader from '@/components/server-details/ServerHeader';
+import SystemInformation from '@/components/server-details/SystemInformation';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
-
-// Composants modulaires
-import ServerDeleteModal from '@/components/server-details/ServerDeleteModal';
-import ServerEditModal from '@/components/server-details/ServerEditModal';
-import ServerHeader from '@/components/server-details/ServerHeader';
-import ServerTabs from '@/components/server-details/ServerTabs';
 
 interface ServerMetrics {
     cpu_usage: number;
@@ -66,7 +68,7 @@ interface Props {
     permissions: Permissions;
 }
 
-export default function ServersShow({ project, server, permissions }: Props) {
+export default function ServersShowNew({ project, server, permissions }: Props) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -89,7 +91,7 @@ export default function ServersShow({ project, server, permissions }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${project.name} - ${server.name}`} />
 
-            <div className="bg-background min-h-screen">
+            <div className="min-h-screen bg-slate-50">
                 {/* En-tête du serveur */}
                 <ServerHeader
                     project={project}
@@ -99,10 +101,40 @@ export default function ServersShow({ project, server, permissions }: Props) {
                     onDelete={() => setIsDeleteModalOpen(true)}
                 />
 
-                {/* Contenu principal avec tabs */}
-                <div className="p-2">
-                    <div className="mx-auto w-full">
-                        <ServerTabs server={server} project={project} />
+                {/* Contenu principal */}
+                <div className="px-6 py-8">
+                    <div className="mx-auto max-w-7xl">
+                        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                            {/* Colonne principale - Métriques */}
+                            <div className="space-y-8 lg:col-span-2">
+                                {/* Aperçu des métriques */}
+                                <div>
+                                    <h2 className="mb-4 text-lg font-semibold text-slate-900">Métriques en temps réel</h2>
+                                    <MetricsOverview metrics={server.metrics} />
+                                </div>
+
+                                {/* Informations système */}
+                                <div>
+                                    <h2 className="mb-4 text-lg font-semibold text-slate-900">Spécifications techniques</h2>
+                                    <SystemInformation systemInfo={server.system_info} />
+                                </div>
+
+                                {/* Graphiques des métriques */}
+                                <div>
+                                    <h2 className="mb-4 text-lg font-semibold text-slate-900">Historique des performances</h2>
+                                    <MetricsCharts project={project} server={server} />
+                                </div>
+                            </div>
+
+                            {/* Colonne latérale - Configuration */}
+                            <div className="space-y-6">
+                                {/* Configuration du serveur */}
+                                <ServerConfiguration server={server} />
+
+                                {/* Installation de l'agent */}
+                                <AgentInstallation server={server} project={project} />
+                            </div>
+                        </div>
                     </div>
                 </div>
 

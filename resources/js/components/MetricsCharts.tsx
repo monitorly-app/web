@@ -17,7 +17,7 @@ interface ChartsProps {
 }
 
 export default function MetricsCharts({ project, server }: ChartsProps) {
-    const [timeRange, setTimeRange] = useState<'7' | '15' | '30'>('7');
+    const [timeRange, setTimeRange] = useState<'1h' | '12h' | '24h' | '7' | '15' | '30'>('24h');
     const [cpuData, setCpuData] = useState<MetricDataPoint[]>([]);
     const [ramData, setRamData] = useState<MetricDataPoint[]>([]);
     const [diskData, setDiskData] = useState<MetricDataPoint[]>([]);
@@ -26,7 +26,15 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
     const fetchMetricsData = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`/projects/${project.id}/servers/${server.id}/metrics?days=${timeRange}`, {
+            // Construire les paramètres selon la période
+            let params = '';
+            if (['1h', '12h', '24h'].includes(timeRange)) {
+                params = `hours=${timeRange.replace('h', '')}`;
+            } else {
+                params = `days=${timeRange}`;
+            }
+
+            const response = await fetch(`/projects/${project.id}/servers/${server.id}/metrics?${params}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                 },
@@ -57,27 +65,48 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
 
     const formatXAxisLabel = (tickItem: string) => {
         const date = new Date(tickItem);
-        if (timeRange === '7') {
+
+        // Format selon la période sélectionnée
+        if (timeRange === '1h') {
+            return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        } else if (timeRange === '12h' || timeRange === '24h') {
+            return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        } else if (timeRange === '7') {
             return date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit' });
         } else {
             return date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
         }
     };
 
+    const getTimeRangeLabel = () => {
+        const labels = {
+            '1h': '1 heure',
+            '12h': '12 heures',
+            '24h': '24 heures',
+            '7': '7 jours',
+            '15': '15 jours',
+            '30': '30 jours',
+        };
+        return labels[timeRange];
+    };
+
     return (
         <div className="space-y-6">
             {/* Controls */}
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Performance Charts</h3>
+                <h3 className="text-card-foreground text-lg font-medium">Graphiques de performance</h3>
                 <div className="flex items-center gap-2">
-                    <Select value={timeRange} onValueChange={(value: '7' | '15' | '30') => setTimeRange(value)}>
-                        <SelectTrigger className="w-32">
+                    <Select value={timeRange} onValueChange={(value: '1h' | '12h' | '24h' | '7' | '15' | '30') => setTimeRange(value)}>
+                        <SelectTrigger className="w-40">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="7">7 days</SelectItem>
-                            <SelectItem value="15">15 days</SelectItem>
-                            <SelectItem value="30">30 days</SelectItem>
+                            <SelectItem value="1h">1 heure</SelectItem>
+                            <SelectItem value="12h">12 heures</SelectItem>
+                            <SelectItem value="24h">24 heures</SelectItem>
+                            <SelectItem value="7">7 jours</SelectItem>
+                            <SelectItem value="15">15 jours</SelectItem>
+                            <SelectItem value="30">30 jours</SelectItem>
                         </SelectContent>
                     </Select>
                     <Button variant="outline" size="sm" onClick={fetchMetricsData} disabled={loading}>
@@ -87,28 +116,34 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
             </div>
 
             {/* CPU Chart */}
-            <Card>
+            <Card className="bg-card border-border">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Cpu className="h-5 w-5 text-blue-500" />
-                        CPU Usage
+                    <CardTitle className="text-card-foreground flex items-center gap-2">
+                        <Cpu className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                        Utilisation CPU
                     </CardTitle>
-                    <CardDescription>CPU utilization over the last {timeRange} days</CardDescription>
+                    <CardDescription className="text-muted-foreground">Utilisation du processeur sur {getTimeRangeLabel()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={cpuData}>
                                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} stroke="#6b7280" fontSize={12} />
-                                <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={12} label={{ value: '%', angle: -90, position: 'insideLeft' }} />
+                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} className="text-muted-foreground" fontSize={12} />
+                                <YAxis
+                                    domain={[0, 100]}
+                                    className="text-muted-foreground"
+                                    fontSize={12}
+                                    label={{ value: '%', angle: -90, position: 'insideLeft' }}
+                                />
                                 <Tooltip
                                     formatter={formatTooltipValue}
                                     labelFormatter={(label: string) => new Date(label).toLocaleString('fr-FR')}
                                     contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: 'hsl(var(--card))',
+                                        border: '1px solid hsl(var(--border))',
                                         borderRadius: '6px',
+                                        color: 'hsl(var(--card-foreground))',
                                     }}
                                 />
                                 <ReferenceLine y={80} stroke="#ef4444" strokeDasharray="5 5" />
@@ -120,28 +155,34 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
             </Card>
 
             {/* RAM Chart */}
-            <Card>
+            <Card className="bg-card border-border">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <MemoryStick className="h-5 w-5 text-green-500" />
-                        Memory Usage
+                    <CardTitle className="text-card-foreground flex items-center gap-2">
+                        <MemoryStick className="h-5 w-5 text-green-500 dark:text-green-400" />
+                        Utilisation mémoire
                     </CardTitle>
-                    <CardDescription>RAM utilization over the last {timeRange} days</CardDescription>
+                    <CardDescription className="text-muted-foreground">Utilisation de la RAM sur {getTimeRangeLabel()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={ramData}>
                                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} stroke="#6b7280" fontSize={12} />
-                                <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={12} label={{ value: '%', angle: -90, position: 'insideLeft' }} />
+                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} className="text-muted-foreground" fontSize={12} />
+                                <YAxis
+                                    domain={[0, 100]}
+                                    className="text-muted-foreground"
+                                    fontSize={12}
+                                    label={{ value: '%', angle: -90, position: 'insideLeft' }}
+                                />
                                 <Tooltip
                                     formatter={formatTooltipValue}
                                     labelFormatter={(label: string) => new Date(label).toLocaleString('fr-FR')}
                                     contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: 'hsl(var(--card))',
+                                        border: '1px solid hsl(var(--border))',
                                         borderRadius: '6px',
+                                        color: 'hsl(var(--card-foreground))',
                                     }}
                                 />
                                 <ReferenceLine y={85} stroke="#ef4444" strokeDasharray="5 5" />
@@ -153,28 +194,34 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
             </Card>
 
             {/* Disk Chart */}
-            <Card>
+            <Card className="bg-card border-border">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <HardDrive className="h-5 w-5 text-purple-500" />
-                        Disk Usage
+                    <CardTitle className="text-card-foreground flex items-center gap-2">
+                        <HardDrive className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+                        Utilisation disque
                     </CardTitle>
-                    <CardDescription>Disk utilization over the last {timeRange} days</CardDescription>
+                    <CardDescription className="text-muted-foreground">Utilisation du stockage sur {getTimeRangeLabel()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={diskData}>
                                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} stroke="#6b7280" fontSize={12} />
-                                <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={12} label={{ value: '%', angle: -90, position: 'insideLeft' }} />
+                                <XAxis dataKey="timestamp" tickFormatter={formatXAxisLabel} className="text-muted-foreground" fontSize={12} />
+                                <YAxis
+                                    domain={[0, 100]}
+                                    className="text-muted-foreground"
+                                    fontSize={12}
+                                    label={{ value: '%', angle: -90, position: 'insideLeft' }}
+                                />
                                 <Tooltip
                                     formatter={formatTooltipValue}
                                     labelFormatter={(label: string) => new Date(label).toLocaleString('fr-FR')}
                                     contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: 'hsl(var(--card))',
+                                        border: '1px solid hsl(var(--border))',
                                         borderRadius: '6px',
+                                        color: 'hsl(var(--card-foreground))',
                                     }}
                                 />
                                 <ReferenceLine y={90} stroke="#ef4444" strokeDasharray="5 5" />
