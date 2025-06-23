@@ -324,23 +324,28 @@ class ProjectServersController extends Controller
             abort(404);
         }
 
-        // $permissions = $this->getUserProjectPermissions($project, Auth::user());
-        // if (!$permissions['canViewServers']) {
-        //     abort(403);
-        // }
-
         // Récupérer le nombre de jours depuis les paramètres
         $days = $request->input('days', 7);
         $startDate = now()->subDays($days);
 
-        // Récupérer et grouper les métriques par type avec agrégation
-        $interval = $days <= 7 ? '1 hour' : ($days <= 15 ? '4 hours' : '1 day');
+        // Déterminer le format de regroupement selon la base de données
+        $driver = config('database.default');
+        $isPostgres = $driver === 'pgsql';
+
+        // Définir l'intervalle et le format selon les jours
+        if ($days <= 7) {
+            $interval = $isPostgres ? "date_trunc('hour', timestamp)" : "DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00')";
+        } elseif ($days <= 15) {
+            $interval = $isPostgres ? "date_trunc('hour', timestamp)" : "DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00')";
+        } else {
+            $interval = $isPostgres ? "date_trunc('day', timestamp)" : "DATE_FORMAT(timestamp, '%Y-%m-%d 00:00:00')";
+        }
 
         $cpuMetrics = $server->metrics()
             ->where('category', 'system')
             ->where('name', 'cpu')
             ->where('timestamp', '>=', $startDate)
-            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->selectRaw("{$interval} as period, AVG(value) as value")
             ->groupBy('period')
             ->orderBy('period')
             ->get()
@@ -356,7 +361,7 @@ class ProjectServersController extends Controller
             ->where('category', 'system')
             ->where('name', 'ram')
             ->where('timestamp', '>=', $startDate)
-            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->selectRaw("{$interval} as period, AVG(value) as value")
             ->groupBy('period')
             ->orderBy('period')
             ->get()
@@ -372,7 +377,7 @@ class ProjectServersController extends Controller
             ->where('category', 'system')
             ->where('name', 'disk')
             ->where('timestamp', '>=', $startDate)
-            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->selectRaw("{$interval} as period, AVG(value) as value")
             ->groupBy('period')
             ->orderBy('period')
             ->get()

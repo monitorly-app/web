@@ -26,7 +26,7 @@ class MetricsController extends Controller
                 'metrics.*.timestamp' => 'required|string',
                 'metrics.*.category' => 'required|string',
                 'metrics.*.name' => 'required|string',
-                'metrics.*.value' => 'required|numeric',
+                'metrics.*.value' => 'required', // ← Enlève |numeric pour accepter objet ou nombre
                 'boot_time' => 'nullable|integer',
                 'encrypted' => 'boolean',
                 'compressed' => 'boolean',
@@ -92,7 +92,6 @@ class MetricsController extends Controller
                 $server->update([
                     'status' => 'online',
                     'last_seen_at' => now(),
-                    'agent_version' => '0.1.0', // Version de la probe
                 ]);
             }
 
@@ -137,12 +136,20 @@ class MetricsController extends Controller
         $now = now();
 
         foreach ($metrics as $metric) {
+            // Traiter la valeur selon son type
+            $value = $metric['value'];
+
+            // Si c'est un objet (comme disk), prendre le pourcentage
+            if (is_array($value) && isset($value['percent'])) {
+                $value = $value['percent'];
+            }
+
             $metricsToInsert[] = [
                 'server_id' => $server->id,
                 'category' => $metric['category'],
                 'name' => $metric['name'],
-                'value' => $metric['value'],
-                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : null,
+                'value' => is_numeric($value) ? $value : 0,
+                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : (is_array($metric['value']) ? json_encode($metric['value']) : null),
                 'timestamp' => $metric['timestamp'],
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -174,7 +181,7 @@ class MetricsController extends Controller
     }
 
     /**
-     * Obtenir les métriques récentes d'un serveur pour les charts
+     * Obtenir les métriques récentes d'un serveur
      */
     public function getServerMetrics(Request $request, string $projectId, string $serverId): JsonResponse
     {

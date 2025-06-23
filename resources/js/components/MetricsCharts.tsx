@@ -29,7 +29,6 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
             const response = await fetch(`/projects/${project.id}/servers/${server.id}/metrics?days=${timeRange}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
 
@@ -38,6 +37,8 @@ export default function MetricsCharts({ project, server }: ChartsProps) {
                 setCpuData(data.cpu || []);
                 setRamData(data.ram || []);
                 setDiskData(data.disk || []);
+            } else {
+                console.error('Error fetching metrics:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Error fetching metrics:', error);
