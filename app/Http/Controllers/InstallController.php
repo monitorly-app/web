@@ -55,12 +55,15 @@ cat > \$HOME/.monitorly/config.yaml << 'EOF'
 machine_name: "{$server->name}"
 
 collection:
+  # Métriques système de base
   cpu:
     enabled: true
     interval: 30s
+  
   ram:
     enabled: true
     interval: 30s
+  
   disk:
     enabled: true
     interval: 60s
@@ -69,6 +72,41 @@ collection:
         label: "root"
         collect_usage: true
         collect_percent: true
+
+  # Informations système (collectées une fois au démarrage)
+  system_info:
+    enabled: true
+    interval: 24h  # Collecté une fois par jour pour les mises à jour
+
+  # Activité réseau
+  network:
+    enabled: true
+    interval: 30s
+
+  # Nombre de processus
+  processes:
+    enabled: true
+    interval: 60s
+
+  # Uptime du système
+  uptime:
+    enabled: true
+    interval: 5m
+
+  # Activité utilisateur (sessions SSH, etc.)
+  user_activity:
+    enabled: true
+    interval: 2m
+
+  # Tentatives de connexion échouées
+  login_failures:
+    enabled: true
+    interval: 5m
+
+  # Surveillance des ports ouverts
+  port:
+    enabled: true
+    interval: 10m
 
 sender:
   target: "api"
@@ -105,6 +143,16 @@ if sudo systemctl is-active --quiet monitorly-probe; then
     echo "✅ Installation réussie !"
     echo "📊 Probe active et en cours d'envoi des métriques"
     echo "🌐 Tableau de bord: {$baseUrl}/projects/{$project->id}/servers"
+    echo ""
+    echo "📊 Métriques collectées:"
+    echo "  • CPU, RAM, Disk (métriques de base)"
+    echo "  • Informations système (OS, CPU, mémoire totale)"
+    echo "  • Activité réseau (I/O)"
+    echo "  • Nombre de processus actifs"
+    echo "  • Uptime du système"
+    echo "  • Activité utilisateur"
+    echo "  • Surveillance des connexions"
+    echo "  • Ports ouverts"
     echo ""
     echo "📋 Statut du service:"
     sudo systemctl status monitorly-probe --no-pager -l
