@@ -72,45 +72,32 @@ class Server extends Model
     }
 
     /**
-     * Récupérer les métriques actuelles (dernières valeurs connues)
+     * Obtenir les métriques actuelles du serveur
      */
     public function getCurrentMetrics(): array
     {
-        // Récupérer la dernière métrique de chaque type
-        $cpuMetric = $this->getLastMetric('system', 'cpu');
-        $ramMetric = $this->getLastMetric('system', 'ram');
-        $diskMetric = $this->getLastMetric('system', 'disk');
-        $uptimeMetric = $this->getLastMetric('system', 'uptime');
-        $loadMetric = $this->getLastMetric('system', 'load_average');
-        $networkInMetric = $this->getLastMetric('network', 'bytes_recv');
-        $networkOutMetric = $this->getLastMetric('network', 'bytes_sent');
-        $processesMetric = $this->getLastMetric('system', 'processes');
-        $connectionsMetric = $this->getLastMetric('network', 'connections');
+        $lastMetrics = $this->last_metrics ?? [];
 
-        return [
-            'cpu_usage' => $cpuMetric ? $cpuMetric->value : 0,
-            'memory_usage' => $ramMetric ? $ramMetric->value : 0,
-            'disk_usage' => $diskMetric ? $diskMetric->value : 0,
-            'uptime' => $uptimeMetric ? $uptimeMetric->value : 0,
-            'load_average' => $loadMetric && isset($loadMetric->metadata['load_avg']) ?
-                json_decode($loadMetric->metadata['load_avg'], true) : [0, 0, 0],
-            'network_in' => $networkInMetric ? $networkInMetric->value : 0,
-            'network_out' => $networkOutMetric ? $networkOutMetric->value : 0,
-            'processes_count' => $processesMetric ? $processesMetric->value : 0,
-            'connections_count' => $connectionsMetric ? $connectionsMetric->value : 0,
+        // Métriques de base depuis last_metrics
+        $currentMetrics = [
+            'cpu_usage' => $lastMetrics['system.cpu']['value'] ?? 0,
+            'memory_usage' => $lastMetrics['system.ram']['value'] ?? 0,
+            'disk_usage' => $lastMetrics['system.disk']['value'] ?? 0,
+            'uptime' => $lastMetrics['system.uptime']['value'] ?? 0,
+            'network_in' => $lastMetrics['system.network_in']['value'] ?? 0,
+            'network_out' => $lastMetrics['system.network_out']['value'] ?? 0,
+            'processes_count' => $lastMetrics['system.processes']['value'] ?? 0,
+            'connections_count' => $lastMetrics['system.connections']['value'] ?? 0,
         ];
-    }
 
-    /**
-     * Obtenir la dernière métrique d'un type donné
-     */
-    public function getLastMetric(string $category, string $name)
-    {
-        return $this->metrics()
-            ->where('category', $category)
-            ->where('name', $name)
-            ->latest('timestamp')
-            ->first();
+        // Load average depuis les métadonnées de disk (exemple)
+        if (isset($lastMetrics['system.load']) && isset($lastMetrics['system.load']['metadata']['load_avg'])) {
+            $currentMetrics['load_average'] = json_decode($lastMetrics['system.load']['metadata']['load_avg'], true) ?? [0, 0, 0];
+        } else {
+            $currentMetrics['load_average'] = [0, 0, 0];
+        }
+
+        return $currentMetrics;
     }
 
     /**
@@ -127,10 +114,24 @@ class Server extends Model
             'cpu_cores' => $systemInfo['cpu_cores'] ?? 0,
             'total_memory' => $systemInfo['total_memory'] ?? 0,
             'total_disk' => $systemInfo['total_disk'] ?? 0,
-            'total_memory_formatted' => isset($systemInfo['total_memory']) ? $this->formatBytes($systemInfo['total_memory']) : 'Unknown',
-            'total_disk_formatted' => isset($systemInfo['total_disk']) ? $this->formatBytes($systemInfo['total_disk']) : 'Unknown',
+            'total_memory_formatted' => isset($systemInfo['total_memory']) ?
+                $this->formatBytes($systemInfo['total_memory']) : 'Unknown',
+            'total_disk_formatted' => isset($systemInfo['total_disk']) ?
+                $this->formatBytes($systemInfo['total_disk']) : 'Unknown',
             'hostname' => $systemInfo['hostname'] ?? $this->name,
         ];
+    }
+
+    /**
+     * Obtenir la dernière métrique d'un type donné
+     */
+    public function getLastMetric(string $category, string $name)
+    {
+        return $this->metrics()
+            ->where('category', $category)
+            ->where('name', $name)
+            ->latest('timestamp')
+            ->first();
     }
 
     /**
@@ -200,15 +201,19 @@ class Server extends Model
     }
 
     /**
-     * Formater les bytes en unités lisibles
+     * Formater les bytes en format lisible
      */
     private function formatBytes(int $bytes): string
     {
-        if ($bytes === 0) return '0 B';
-
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $unitIndex = floor(log($bytes, 1024));
+        $unitIndex = 0;
+        $size = $bytes;
 
-        return round($bytes / pow(1024, $unitIndex), 2) . ' ' . $units[$unitIndex];
+        while ($size >= 1024 && $unitIndex < count($units) - 1) {
+            $size /= 1024;
+            $unitIndex++;
+        }
+
+        return round($size, 2) . ' ' . $units[$unitIndex];
     }
 }

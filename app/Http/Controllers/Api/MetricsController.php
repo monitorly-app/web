@@ -26,7 +26,7 @@ class MetricsController extends Controller
                 'metrics.*.timestamp' => 'required|string',
                 'metrics.*.category' => 'required|string',
                 'metrics.*.name' => 'required|string',
-                'metrics.*.value' => 'required', // ← Enlève |numeric pour accepter objet ou nombre
+                'metrics.*.value' => 'required', // ← Accepte objet ou nombre
                 'boot_time' => 'nullable|integer',
                 'encrypted' => 'boolean',
                 'compressed' => 'boolean',
@@ -43,9 +43,9 @@ class MetricsController extends Controller
                 return response()->json(['error' => 'Missing or invalid authorization header'], 401);
             }
 
-            $applicationToken = substr($authHeader, 7); // Enlever "Bearer "
+            $applicationToken = substr($authHeader, 7);
 
-            // 3. Trouver le projet via l'URL (project_id dans l'URL de l'API)
+            // 3. Trouver le projet via l'URL
             $projectId = $request->route('project_id');
             $project = Project::where('id', $projectId)
                 ->where('api_key', $applicationToken)
@@ -75,8 +75,8 @@ class MetricsController extends Controller
                 // Créer automatiquement le serveur s'il n'existe pas
                 $server = $project->servers()->create([
                     'name' => $machineName,
-                    'host' => $request->ip(), // IP de la probe
-                    'port' => 22, // Port par défaut
+                    'host' => $request->ip(),
+                    'port' => 22,
                     'description' => 'Auto-created from Monitorly probe',
                     'is_active' => true,
                     'status' => 'online',
@@ -133,32 +133,59 @@ class MetricsController extends Controller
     private function processMetrics(Server $server, array $metrics, ?int $bootTime): void
     {
         $metricsToInsert = [];
+        $lastMetrics = [];
+        $systemInfoUpdated = false;
         $now = now();
 
         foreach ($metrics as $metric) {
-            // Traiter la valeur selon son type
+            $category = $metric['category'];
+            $name = $metric['name'];
             $value = $metric['value'];
 
-            // Si c'est un objet (comme disk), prendre le pourcentage
-            if (is_array($value) && isset($value['percent'])) {
-                $value = $value['percent'];
+            // CAS SPÉCIAL : system_info va dans servers.system_info
+            if ($category === 'system' && $name === 'system_info') {
+                if (is_array($value)) {
+                    $server->update(['system_info' => $value]);
+                    $systemInfoUpdated = true;
+                    Log::info('Updated system_info for server', [
+                        'server_id' => $server->id,
+                        'system_info' => $value
+                    ]);
+                }
+                continue; // Ne pas stocker dans metrics table
             }
 
+            // AUTRES MÉTRIQUES : traitement normal
+            $numericValue = $this->extractNumericValue($value);
+
+            // Stocker dans la table metrics
             $metricsToInsert[] = [
                 'server_id' => $server->id,
-                'category' => $metric['category'],
-                'name' => $metric['name'],
-                'value' => is_numeric($value) ? $value : 0,
-                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : (is_array($metric['value']) ? json_encode($metric['value']) : null),
+                'category' => $category,
+                'name' => $name,
+                'value' => $numericValue,
+                'metadata' => $this->prepareMetadata($metric),
                 'timestamp' => $metric['timestamp'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
+
+            // Stocker pour last_metrics
+            $lastMetrics["{$category}.{$name}"] = [
+                'value' => $numericValue,
+                'timestamp' => $metric['timestamp'],
+                'metadata' => is_array($value) ? $value : null,
+            ];
         }
 
-        // Insertion en lot pour les performances
+        // Insertion en lot des métriques
         if (!empty($metricsToInsert)) {
             Metric::insert($metricsToInsert);
+        }
+
+        // Mettre à jour last_metrics
+        if (!empty($lastMetrics)) {
+            $server->update(['last_metrics' => $lastMetrics]);
         }
 
         // Sauvegarder le boot time si fourni
@@ -166,12 +193,57 @@ class MetricsController extends Controller
             $server->update(['boot_time' => $bootTime]);
         }
 
-        // Nettoyer les anciennes métriques (garder seulement 30 jours)
+        // Nettoyer les anciennes métriques
         $this->cleanupOldMetrics($server);
     }
 
     /**
-     * Nettoyer les anciennes métriques pour éviter que la DB grossisse trop
+     * Extraire une valeur numérique selon le type
+     */
+    private function extractNumericValue($value): float
+    {
+        // Si c'est déjà un nombre
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        // Si c'est un objet (comme disk avec percent)
+        if (is_array($value)) {
+            if (isset($value['percent'])) {
+                return (float) $value['percent'];
+            }
+            if (isset($value['value'])) {
+                return (float) $value['value'];
+            }
+            // Pour les objets complexes, retourner 0
+            return 0.0;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Préparer les métadonnées
+     */
+    private function prepareMetadata(array $metric): ?string
+    {
+        $metadata = [];
+
+        // Ajouter les métadonnées explicites si présentes
+        if (isset($metric['metadata']) && is_array($metric['metadata'])) {
+            $metadata = array_merge($metadata, $metric['metadata']);
+        }
+
+        // Si la valeur est un objet, l'inclure dans metadata
+        if (is_array($metric['value'])) {
+            $metadata['original_value'] = $metric['value'];
+        }
+
+        return !empty($metadata) ? json_encode($metadata) : null;
+    }
+
+    /**
+     * Nettoyer les anciennes métriques
      */
     private function cleanupOldMetrics(Server $server): void
     {
