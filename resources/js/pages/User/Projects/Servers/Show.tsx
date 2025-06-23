@@ -1,3 +1,4 @@
+import MetricsCharts from '@/components/MetricsCharts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -428,6 +429,7 @@ export default function ServersShow({ project, server, permissions }: Props) {
                                 </div>
                             </CardContent>
                         </Card>
+                        <MetricsCharts project={project} server={server} />
                     </div>
 
                     {/* Right Column - Configuration */}

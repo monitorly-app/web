@@ -102,6 +102,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{server}', [ProjectServersController::class, 'update'])->name('update');
             Route::delete('/{server}', [ProjectServersController::class, 'destroy'])->name('destroy');
             Route::post('/{server}/regenerate-token', [ProjectServersController::class, 'regenerateToken'])->name('regenerate-token');
+            Route::get('/{server}/metrics', [ProjectServersController::class, 'getMetrics'])->name('get-metrics');
         });
     });
 });

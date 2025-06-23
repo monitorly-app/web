@@ -18,10 +18,7 @@ class MetricsController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-
         try {
-
-
             // 1. Validation de base
             $validator = Validator::make($request->all(), [
                 'machine_name' => 'required|string|max:255',
@@ -29,7 +26,7 @@ class MetricsController extends Controller
                 'metrics.*.timestamp' => 'required|string',
                 'metrics.*.category' => 'required|string',
                 'metrics.*.name' => 'required|string',
-                'metrics.*.value' => 'required', // ← Enlève |numeric pour accepter objet ou nombre
+                'metrics.*.value' => 'required|numeric',
                 'boot_time' => 'nullable|integer',
                 'encrypted' => 'boolean',
                 'compressed' => 'boolean',
@@ -95,6 +92,7 @@ class MetricsController extends Controller
                 $server->update([
                     'status' => 'online',
                     'last_seen_at' => now(),
+                    'agent_version' => '0.1.0', // Version de la probe
                 ]);
             }
 
@@ -139,25 +137,18 @@ class MetricsController extends Controller
         $now = now();
 
         foreach ($metrics as $metric) {
-            // Traiter la valeur selon son type
-            $value = $metric['value'];
-
-            // Si c'est un objet (comme disk), prendre le pourcentage
-            if (is_array($value) && isset($value['percent'])) {
-                $value = $value['percent'];
-            }
-
             $metricsToInsert[] = [
                 'server_id' => $server->id,
                 'category' => $metric['category'],
                 'name' => $metric['name'],
-                'value' => is_numeric($value) ? $value : 0,
-                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : (is_array($metric['value']) ? json_encode($metric['value']) : null),
+                'value' => $metric['value'],
+                'metadata' => isset($metric['metadata']) ? json_encode($metric['metadata']) : null,
                 'timestamp' => $metric['timestamp'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
         }
+
         // Insertion en lot pour les performances
         if (!empty($metricsToInsert)) {
             Metric::insert($metricsToInsert);
@@ -183,7 +174,7 @@ class MetricsController extends Controller
     }
 
     /**
-     * Obtenir les métriques récentes d'un serveur
+     * Obtenir les métriques récentes d'un serveur pour les charts
      */
     public function getServerMetrics(Request $request, string $projectId, string $serverId): JsonResponse
     {
@@ -207,16 +198,33 @@ class MetricsController extends Controller
             return response()->json(['error' => 'Server not found'], 404);
         }
 
-        // Récupérer les métriques des 24 dernières heures
+        // Récupérer le nombre de jours depuis les paramètres
+        $days = $request->input('days', 7);
+        $startDate = now()->subDays($days);
+
+        // Récupérer et grouper les métriques par type
         $metrics = $server->metrics()
-            ->where('timestamp', '>=', now()->subDay())
-            ->orderBy('timestamp', 'desc')
-            ->limit(1000)
-            ->get();
+            ->where('timestamp', '>=', $startDate)
+            ->orderBy('timestamp', 'asc')
+            ->get()
+            ->groupBy(['category', 'name']);
+
+        // Formater les données pour les charts
+        $formatMetrics = function ($metricsCollection) {
+            return $metricsCollection->map(function ($metric) {
+                return [
+                    'timestamp' => $metric->timestamp->toISOString(),
+                    'value' => $metric->value,
+                    'formatted_time' => $metric->timestamp->format('Y-m-d H:i:s')
+                ];
+            })->values();
+        };
 
         return response()->json([
             'server' => $server,
-            'metrics' => $metrics->groupBy(['category', 'name'])
+            'cpu' => $formatMetrics($metrics['system']['cpu'] ?? collect()),
+            'ram' => $formatMetrics($metrics['system']['ram'] ?? collect()),
+            'disk' => $formatMetrics($metrics['system']['disk'] ?? collect()),
         ]);
     }
 }

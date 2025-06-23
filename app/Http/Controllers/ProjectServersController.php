@@ -313,4 +313,81 @@ class ProjectServersController extends Controller
 
         return implode(', ', $parts) ?: 'Less than a minute';
     }
+
+    /**
+     * Get server metrics for charts (web route)
+     */
+    public function getMetrics(Request $request, Project $project, Server $server)
+    {
+        // Vérifier que le serveur appartient au projet
+        if ($server->project_id !== $project->id) {
+            abort(404);
+        }
+
+        $permissions = $this->getUserProjectPermissions($project, Auth::user());
+        if (!$permissions['canViewServers']) {
+            abort(403);
+        }
+
+        // Récupérer le nombre de jours depuis les paramètres
+        $days = $request->input('days', 7);
+        $startDate = now()->subDays($days);
+
+        // Récupérer et grouper les métriques par type avec agrégation
+        $interval = $days <= 7 ? '1 hour' : ($days <= 15 ? '4 hours' : '1 day');
+
+        $cpuMetrics = $server->metrics()
+            ->where('category', 'system')
+            ->where('name', 'cpu')
+            ->where('timestamp', '>=', $startDate)
+            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'timestamp' => $item->period,
+                    'value' => round($item->value, 2),
+                    'formatted_time' => \Carbon\Carbon::parse($item->period)->format('Y-m-d H:i:s')
+                ];
+            });
+
+        $ramMetrics = $server->metrics()
+            ->where('category', 'system')
+            ->where('name', 'ram')
+            ->where('timestamp', '>=', $startDate)
+            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'timestamp' => $item->period,
+                    'value' => round($item->value, 2),
+                    'formatted_time' => \Carbon\Carbon::parse($item->period)->format('Y-m-d H:i:s')
+                ];
+            });
+
+        $diskMetrics = $server->metrics()
+            ->where('category', 'system')
+            ->where('name', 'disk')
+            ->where('timestamp', '>=', $startDate)
+            ->selectRaw("DATE_TRUNC('{$interval}', timestamp) as period, AVG(value) as value")
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'timestamp' => $item->period,
+                    'value' => round($item->value, 2),
+                    'formatted_time' => \Carbon\Carbon::parse($item->period)->format('Y-m-d H:i:s')
+                ];
+            });
+
+        return response()->json([
+            'cpu' => $cpuMetrics,
+            'ram' => $ramMetrics,
+            'disk' => $diskMetrics,
+        ]);
+    }
 }

@@ -22,7 +22,7 @@ class InstallController extends Controller
 
         $project = $server->project;
         $baseUrl = config('app.url');
-        $apiUrl = "{$baseUrl}/api/projects/{$project->id}/metrics";
+        $apiUrl = "{$baseUrl}/api/projects";
 
         $script = <<<BASH
 #!/bin/bash
