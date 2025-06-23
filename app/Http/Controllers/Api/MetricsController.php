@@ -137,6 +137,16 @@ class MetricsController extends Controller
         $systemInfoUpdated = false;
         $now = now();
 
+        // Détecter la version de l'agent depuis les headers ou user-agent
+        $agentVersion = $this->detectAgentVersion(request());
+        if ($agentVersion && $server->agent_version !== $agentVersion) {
+            $server->update(['agent_version' => $agentVersion]);
+            Log::info('Updated agent version', [
+                'server_id' => $server->id,
+                'version' => $agentVersion
+            ]);
+        }
+
         foreach ($metrics as $metric) {
             $category = $metric['category'];
             $name = $metric['name'];
@@ -152,7 +162,7 @@ class MetricsController extends Controller
                         'system_info' => $value
                     ]);
                 }
-                continue; // Ne pas stocker dans metrics table
+                continue;
             }
 
             // AUTRES MÉTRIQUES : traitement normal
@@ -185,7 +195,13 @@ class MetricsController extends Controller
 
         // Mettre à jour last_metrics
         if (!empty($lastMetrics)) {
-            $server->update(['last_metrics' => $lastMetrics]);
+            $currentLastMetrics = $server->last_metrics ?? [];
+            $server->update(['last_metrics' => array_merge($currentLastMetrics, $lastMetrics)]);
+        }
+
+        // Si pas de system_info explicite, essayer de le construire depuis les métriques
+        if (!$systemInfoUpdated && empty($server->system_info)) {
+            $this->buildSystemInfoFromMetrics($server, $lastMetrics);
         }
 
         // Sauvegarder le boot time si fourni
@@ -195,6 +211,59 @@ class MetricsController extends Controller
 
         // Nettoyer les anciennes métriques
         $this->cleanupOldMetrics($server);
+    }
+
+    /**
+     * Détecter la version de l'agent
+     */
+    private function detectAgentVersion($request): ?string
+    {
+        // Essayer User-Agent header
+        $userAgent = $request->header('User-Agent');
+        if ($userAgent && preg_match('/Monitorly.*?v?([0-9]+\.[0-9]+\.[0-9]+)/', $userAgent, $matches)) {
+            return $matches[1];
+        }
+
+        // Essayer un header personnalisé
+        $agentVersion = $request->header('X-Agent-Version');
+        if ($agentVersion) {
+            return $agentVersion;
+        }
+
+        // Valeur par défaut basée sur les logs qu'on a vus
+        return 'v0.1.0';
+    }
+
+    /**
+     * Construire system_info depuis les métriques disponibles
+     */
+    private function buildSystemInfoFromMetrics(Server $server, array $lastMetrics): void
+    {
+        $systemInfo = [];
+
+        // Extraire les infos du disque depuis les métadonnées
+        if (isset($lastMetrics['system.disk']['metadata'])) {
+            $diskMetadata = $lastMetrics['system.disk']['metadata'];
+            if (isset($diskMetadata['total'])) {
+                $systemInfo['total_disk'] = $diskMetadata['total'];
+            }
+        }
+
+        // Infos de base qu'on peut deviner
+        $systemInfo['os'] = 'Linux (auto-detected)';
+        $systemInfo['kernel'] = 'Unknown';
+        $systemInfo['cpu_model'] = 'Unknown';
+        $systemInfo['cpu_cores'] = 1; // Valeur par défaut
+        $systemInfo['hostname'] = $server->name;
+
+        // Si on a des infos, les sauvegarder
+        if (!empty($systemInfo)) {
+            $server->update(['system_info' => $systemInfo]);
+            Log::info('Built basic system_info from metrics', [
+                'server_id' => $server->id,
+                'system_info' => $systemInfo
+            ]);
+        }
     }
 
     /**

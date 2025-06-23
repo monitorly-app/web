@@ -72,14 +72,13 @@ class Server extends Model
     }
 
     /**
-     * Obtenir les métriques actuelles du serveur
+     * Obtenir les métriques actuelles du serveur depuis last_metrics
      */
     public function getCurrentMetrics(): array
     {
         $lastMetrics = $this->last_metrics ?? [];
 
-        // Métriques de base depuis last_metrics
-        $currentMetrics = [
+        return [
             'cpu_usage' => $lastMetrics['system.cpu']['value'] ?? 0,
             'memory_usage' => $lastMetrics['system.ram']['value'] ?? 0,
             'disk_usage' => $lastMetrics['system.disk']['value'] ?? 0,
@@ -88,16 +87,8 @@ class Server extends Model
             'network_out' => $lastMetrics['system.network_out']['value'] ?? 0,
             'processes_count' => $lastMetrics['system.processes']['value'] ?? 0,
             'connections_count' => $lastMetrics['system.connections']['value'] ?? 0,
+            'load_average' => [0, 0, 0], // À implémenter plus tard
         ];
-
-        // Load average depuis les métadonnées de disk (exemple)
-        if (isset($lastMetrics['system.load']) && isset($lastMetrics['system.load']['metadata']['load_avg'])) {
-            $currentMetrics['load_average'] = json_decode($lastMetrics['system.load']['metadata']['load_avg'], true) ?? [0, 0, 0];
-        } else {
-            $currentMetrics['load_average'] = [0, 0, 0];
-        }
-
-        return $currentMetrics;
     }
 
     /**
@@ -106,17 +97,24 @@ class Server extends Model
     public function getFormattedSystemInfo(): array
     {
         $systemInfo = $this->system_info ?? [];
+        $lastMetrics = $this->last_metrics ?? [];
+
+        // Essayer d'extraire des infos depuis les métadonnées si system_info est vide
+        if (empty($systemInfo) && isset($lastMetrics['system.disk']['metadata'])) {
+            $diskMetadata = $lastMetrics['system.disk']['metadata'];
+            $systemInfo['total_disk'] = $diskMetadata['total'] ?? 0;
+        }
 
         return [
-            'os' => $systemInfo['os'] ?? 'Unknown',
+            'os' => $systemInfo['os'] ?? 'Linux (auto-detected)',
             'kernel' => $systemInfo['kernel'] ?? 'Unknown',
             'cpu_model' => $systemInfo['cpu_model'] ?? 'Unknown',
-            'cpu_cores' => $systemInfo['cpu_cores'] ?? 0,
+            'cpu_cores' => $systemInfo['cpu_cores'] ?? 1,
             'total_memory' => $systemInfo['total_memory'] ?? 0,
             'total_disk' => $systemInfo['total_disk'] ?? 0,
-            'total_memory_formatted' => isset($systemInfo['total_memory']) ?
+            'total_memory_formatted' => isset($systemInfo['total_memory']) && $systemInfo['total_memory'] > 0 ?
                 $this->formatBytes($systemInfo['total_memory']) : 'Unknown',
-            'total_disk_formatted' => isset($systemInfo['total_disk']) ?
+            'total_disk_formatted' => isset($systemInfo['total_disk']) && $systemInfo['total_disk'] > 0 ?
                 $this->formatBytes($systemInfo['total_disk']) : 'Unknown',
             'hostname' => $systemInfo['hostname'] ?? $this->name,
         ];
@@ -165,13 +163,15 @@ class Server extends Model
     }
 
     /**
-     * Vérifier si le serveur est hors ligne
+     * Vérifier si le serveur est considéré comme hors ligne
      */
     public function isOffline(): bool
     {
-        return $this->status === 'offline' ||
-            !$this->last_seen_at ||
-            $this->last_seen_at->lt(now()->subMinutes(10));
+        if (!$this->last_seen_at) {
+            return true;
+        }
+
+        return $this->last_seen_at->lt(now()->subMinutes(10));
     }
 
     /**
@@ -205,6 +205,8 @@ class Server extends Model
      */
     private function formatBytes(int $bytes): string
     {
+        if ($bytes === 0) return '0 B';
+
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
         $unitIndex = 0;
         $size = $bytes;
