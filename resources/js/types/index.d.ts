@@ -20,6 +20,7 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    items?: NavItem[];
 }
 
 export interface User {
@@ -27,33 +28,90 @@ export interface User {
     name: string;
     email: string;
     avatar?: string;
-    email_verified_at: string | null;
+    email_verified_at?: string;
     created_at: string;
     updated_at: string;
-    role_id?: number;
+    role_id: number;
+    plan_id?: number;
+    is_active: boolean;
     [key: string]: unknown;
 }
 
-// Interface pour les membres du projet avec pivot
-export interface ProjectMember {
+// Interface pour les membres de l'organisation avec pivot
+export interface OrganizationMember {
     id: number;
     name: string;
     email: string;
     avatar?: string;
     pivot: {
-        project_role_id: number;
+        organization_role_id: number;
         created_at?: string;
         updated_at?: string;
     };
 }
 
-export interface Project {
+export interface Organization {
     id: string;
     name: string;
+    logo?: string;
     description?: string;
     owner_id: number;
     owner?: User;
-    members?: ProjectMember[];
+    members?: OrganizationMember[];
+    servers?: Server[];
+    api_key?: string;
+    encryption_key?: string;
+    api_usage_stats?: {
+        requests_this_month: number;
+        monthly_limit: number;
+        limit_percentage: number;
+        last_used: string | null;
+        reset_date: string;
+    };
+    // Champs de facturation
+    plan_id?: number;
+    plan?: Plan;
+    subscription_status?: 'trial' | 'active' | 'cancelled' | 'suspended';
+    trial_ends_at?: string;
+    stripe_customer_id?: string;
+    stripe_subscription_id?: string;
+    next_billing_date?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Plan {
+    id: number;
+    name: string;
+    description: string;
+    price: {
+        monthly: number;
+        yearly: number;
+    };
+    billing_cycle: string;
+    max_servers: number;
+    max_organizations: number;
+    max_members_per_organization: number;
+    features: string[];
+    is_active: boolean;
+}
+
+export interface Role {
+    id: number;
+    name: string;
+    description: string;
+}
+
+export interface Server {
+    id: string;
+    name: string;
+    hostname: string;
+    ip_address?: string;
+    port: number;
+    status: 'online' | 'offline' | 'warning';
+    last_ping_at?: string;
+    organization_id: string;
+    token: string;
     created_at: string;
     updated_at: string;
 }
@@ -64,9 +122,15 @@ export interface SharedData {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
-    admin_mode?: boolean;
-    currentProject?: Project;
-    projects: Project[];
+    admin_mode: boolean;
+    organizations: Organization[];
+    currentOrganization?: Organization;
+    organizationLimits?: {
+        canCreate: boolean;
+        currentCount: number;
+        maxAllowed: number;
+        planName: string;
+    };
     flash?: {
         success?: string;
         error?: string;
@@ -75,3 +139,9 @@ export interface SharedData {
     };
     [key: string]: unknown;
 }
+
+export type PageProps<T extends Record<string, unknown> = Record<string, unknown>> = T & {
+    auth: {
+        user: User;
+    };
+};

@@ -18,6 +18,19 @@ interface MetricsOverviewProps {
 }
 
 export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
+    // Valeurs par défaut si metrics est undefined ou incomplet
+    const safeMetrics = {
+        cpu_usage: metrics?.cpu_usage ?? 0,
+        memory_usage: metrics?.memory_usage ?? 0,
+        disk_usage: metrics?.disk_usage ?? 0,
+        network_in: metrics?.network_in ?? 0,
+        network_out: metrics?.network_out ?? 0,
+        uptime: metrics?.uptime ?? 0,
+        load_average: metrics?.load_average ?? [0, 0, 0],
+        processes_count: metrics?.processes_count ?? 0,
+        connections_count: metrics?.connections_count ?? 0,
+    };
+
     const formatBytes = (bytes: number): string => {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -62,28 +75,28 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
     const metricCards = [
         {
             title: 'Processeur',
-            value: `${metrics.cpu_usage.toFixed(1)}%`,
+            value: `${safeMetrics.cpu_usage.toFixed(1)}%`,
             icon: Cpu,
-            usage: metrics.cpu_usage,
+            usage: safeMetrics.cpu_usage,
             description: 'Utilisation CPU',
         },
         {
             title: 'Mémoire',
-            value: `${metrics.memory_usage.toFixed(1)}%`,
+            value: `${safeMetrics.memory_usage.toFixed(1)}%`,
             icon: MemoryStick,
-            usage: metrics.memory_usage,
+            usage: safeMetrics.memory_usage,
             description: 'RAM utilisée',
         },
         {
             title: 'Disque',
-            value: `${metrics.disk_usage.toFixed(1)}%`,
+            value: `${safeMetrics.disk_usage.toFixed(1)}%`,
             icon: HardDrive,
-            usage: metrics.disk_usage,
+            usage: safeMetrics.disk_usage,
             description: 'Stockage utilisé',
         },
         {
             title: 'Temps de fonctionnement',
-            value: formatUptime(metrics.uptime),
+            value: formatUptime(safeMetrics.uptime),
             icon: Clock,
             usage: 0,
             description: "Durée d'activité",
@@ -141,15 +154,15 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">1 min</span>
-                            <span className="text-card-foreground font-medium">{metrics.load_average[0]?.toFixed(2) || '0.00'}</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[0]?.toFixed(2) || '0.00'}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">5 min</span>
-                            <span className="text-card-foreground font-medium">{metrics.load_average[1]?.toFixed(2) || '0.00'}</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[1]?.toFixed(2) || '0.00'}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">15 min</span>
-                            <span className="text-card-foreground font-medium">{metrics.load_average[2]?.toFixed(2) || '0.00'}</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[2]?.toFixed(2) || '0.00'}</span>
                         </div>
                     </div>
                 </div>
@@ -168,11 +181,11 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Entrant</span>
-                            <span className="text-card-foreground font-medium">{formatBytes(metrics.network_in)}</span>
+                            <span className="text-card-foreground font-medium">{formatBytes(safeMetrics.network_in)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Sortant</span>
-                            <span className="text-card-foreground font-medium">{formatBytes(metrics.network_out)}</span>
+                            <span className="text-card-foreground font-medium">{formatBytes(safeMetrics.network_out)}</span>
                         </div>
                     </div>
                 </div>
@@ -191,11 +204,11 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">En cours</span>
-                            <span className="text-card-foreground font-medium">{metrics.processes_count}</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.processes_count}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Connexions</span>
-                            <span className="text-card-foreground font-medium">{metrics.connections_count}</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.connections_count}</span>
                         </div>
                     </div>
                 </div>

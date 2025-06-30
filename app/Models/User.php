@@ -76,6 +76,30 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has a specific permission
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return $this->role && $this->role->hasPermission($permission);
+    }
+
+    /**
+     * Check if user has any of the given permissions
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        return $this->role && $this->role->hasAnyPermission($permissions);
+    }
+
+    /**
+     * Check if user can perform a specific action
+     */
+    public function canPerform(string $permission): bool
+    {
+        return $this->hasPermission($permission);
+    }
+
+    /**
      * Get the user's full name.
      */
     public function getFullNameAttribute(): string
@@ -88,32 +112,36 @@ class User extends Authenticatable
     }
 
     /**
-     * Projets dont l'utilisateur est propriétaire
+     * Organisations dont l'utilisateur est propriétaire
      */
-    public function ownedProjects()
+    public function ownedOrganizations()
     {
-        return $this->hasMany(Project::class, 'owner_id');
+        return $this->hasMany(Organization::class, 'owner_id');
     }
 
     /**
-     * Tous les projets auxquels l'utilisateur a accès
-     * (y compris ceux dont il est propriétaire)
+     * Toutes les organisations auxquelles l'utilisateur a accès
+     * (y compris celles dont il est propriétaire et celles dont il est membre)
      */
-    public function projects()
+    public function organizations()
     {
-        return $this->ownedProjects()
-            ->orWhereHas('members', function ($query) {
-                $query->where('user_id', $this->id);
-            });
+        // Récupérer les organisations possédées
+        $ownedOrganizations = $this->ownedOrganizations()->get();
+
+        // Récupérer les organisations où l'utilisateur est membre
+        $memberOrganizations = $this->memberOrganizations()->get();
+
+        // Fusionner les deux collections et supprimer les doublons
+        return $ownedOrganizations->merge($memberOrganizations)->unique('id');
     }
 
     /**
-     * Projets dont l'utilisateur est membre
+     * Organisations dont l'utilisateur est membre
      */
-    public function memberProjects()
+    public function memberOrganizations()
     {
-        return $this->belongsToMany(Project::class, 'project_user')
-            ->withPivot('project_role_id')
+        return $this->belongsToMany(Organization::class, 'organization_user')
+            ->withPivot('organization_role_id')
             ->withTimestamps();
     }
 }

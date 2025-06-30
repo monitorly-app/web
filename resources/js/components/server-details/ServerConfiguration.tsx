@@ -18,6 +18,20 @@ interface ServerConfigurationProps {
 }
 
 export default function ServerConfiguration({ server }: ServerConfigurationProps) {
+    // Valeurs par défaut si server est undefined ou incomplet
+    const safeServer = {
+        id: server?.id ?? 'N/A',
+        name: server?.name ?? 'Serveur sans nom',
+        host: server?.host ?? 'N/A',
+        port: server?.port ?? 0,
+        description: server?.description ?? null,
+        status: server?.status ?? 'pending',
+        last_seen: server?.last_seen ?? null,
+        agent_version: server?.agent_version ?? null,
+        token: server?.token ?? '',
+        created_at: server?.created_at ?? new Date().toISOString(),
+    };
+
     const formatDate = (dateString: string): string => {
         return new Date(dateString).toLocaleDateString('fr-FR', {
             year: 'numeric',
@@ -54,11 +68,11 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
             icon: Wifi,
             color: 'blue',
             items: [
-                { label: "Adresse d'hôte", value: server.host },
-                { label: 'Port', value: server.port.toString() },
+                { label: "Adresse d'hôte", value: safeServer.host },
+                { label: 'Port', value: safeServer.port.toString() },
                 {
                     label: 'Dernière connexion',
-                    value: server.last_seen ? formatDate(server.last_seen) : 'Jamais connecté',
+                    value: safeServer.last_seen ? formatDate(safeServer.last_seen) : 'Jamais connecté',
                 },
             ],
         },
@@ -67,9 +81,9 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
             icon: Settings,
             color: 'gray',
             items: [
-                { label: 'Nom du serveur', value: server.name },
-                { label: 'Description', value: server.description || 'Aucune description' },
-                { label: 'Date de création', value: formatDate(server.created_at) },
+                { label: 'Nom du serveur', value: safeServer.name },
+                { label: 'Description', value: safeServer.description || 'Aucune description' },
+                { label: 'Date de création', value: formatDate(safeServer.created_at) },
             ],
         },
     ];
@@ -85,7 +99,7 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
         return colors[color as keyof typeof colors] || colors.gray;
     };
 
-    const statusConfig = getStatusConfig(server.status);
+    const statusConfig = getStatusConfig(safeServer.status);
 
     return (
         <div className="space-y-6">
@@ -112,7 +126,7 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
                             <span className="text-card-foreground text-sm font-medium">Endpoint</span>
                         </div>
                         <p className="text-card-foreground font-mono text-sm">
-                            {server.host}:{server.port}
+                            {safeServer.host}:{safeServer.port}
                         </p>
                     </div>
 
@@ -121,7 +135,7 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
                             <KeyRound className="text-muted-foreground h-4 w-4" />
                             <span className="text-card-foreground text-sm font-medium">Identifiant</span>
                         </div>
-                        <p className="text-card-foreground font-mono text-sm">{server.id}</p>
+                        <p className="text-card-foreground font-mono text-sm">{safeServer.id}</p>
                     </div>
 
                     <div className="bg-muted rounded-lg p-4">
@@ -129,7 +143,7 @@ export default function ServerConfiguration({ server }: ServerConfigurationProps
                             <Clock className="text-muted-foreground h-4 w-4" />
                             <span className="text-card-foreground text-sm font-medium">Créé le</span>
                         </div>
-                        <p className="text-card-foreground text-sm">{formatDate(server.created_at)}</p>
+                        <p className="text-card-foreground text-sm">{formatDate(safeServer.created_at)}</p>
                     </div>
                 </div>
             </div>

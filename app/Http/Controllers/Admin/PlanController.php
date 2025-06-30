@@ -36,12 +36,23 @@ class PlanController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:plans',
-            'price' => 'required|numeric|min:0',
+            'price_monthly' => 'required|numeric|min:0',
+            'price_yearly' => 'required|numeric|min:0',
             'frequency' => 'required|integer|min:1',
-            'max_servers' => 'required|integer|min:1',
-            'max_users' => 'required|integer|min:1',
+            'max_servers' => 'required|integer|min:-1',
+            'max_users' => 'required|integer|min:-1',
+            'max_organizations' => 'required|integer|min:-1',
             'description' => 'nullable|string',
         ]);
+
+        // Convert individual price fields to JSON structure
+        $validated['price'] = [
+            'monthly' => $validated['price_monthly'],
+            'yearly' => $validated['price_yearly']
+        ];
+
+        // Remove individual price fields
+        unset($validated['price_monthly'], $validated['price_yearly']);
 
         Plan::create($validated);
 
@@ -65,12 +76,22 @@ class PlanController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:plans,name,' . $plan->id,
-            'price' => 'required|numeric|min:0',
+            'price_monthly' => 'required|numeric|min:0',
+            'price_yearly' => 'required|numeric|min:0',
             'frequency' => 'required|integer|min:1',
-            'max_servers' => 'required|integer|min:1',
-            'max_users' => 'required|integer|min:1',
+            'max_servers' => 'required|integer|min:-1',
+            'max_users' => 'required|integer|min:-1',
             'description' => 'nullable|string',
         ]);
+
+        // Convert individual price fields to JSON structure
+        $validated['price'] = [
+            'monthly' => $validated['price_monthly'],
+            'yearly' => $validated['price_yearly']
+        ];
+
+        // Remove individual price fields
+        unset($validated['price_monthly'], $validated['price_yearly']);
 
         $plan->update($validated);
 

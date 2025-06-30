@@ -13,18 +13,16 @@ return new class extends Migration
     {
         Schema::create('metrics', function (Blueprint $table) {
             $table->id();
+            $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
             $table->foreignUuid('server_id')->constrained('servers')->onDelete('cascade');
-            $table->string('category', 50)->index(); // system, network, etc.
-            $table->string('name', 100)->index(); // cpu, ram, disk, etc.
-            $table->decimal('value', 15, 4); // Valeur de la métrique
-            $table->json('metadata')->nullable(); // Métadonnées supplémentaires
-            $table->timestamp('timestamp')->index(); // Timestamp de la métrique
+            $table->string('type'); // cpu, memory, disk, network, etc.
+            $table->json('data'); // Les données de la métrique
+            $table->timestamp('recorded_at');
             $table->timestamps();
 
-            // Index composés pour les requêtes fréquentes
-            $table->index(['server_id', 'category', 'name']);
-            $table->index(['server_id', 'timestamp']);
-            $table->index(['category', 'name', 'timestamp']);
+            // Index pour optimiser les requêtes
+            $table->index(['organization_id', 'server_id', 'type', 'recorded_at']);
+            $table->index(['server_id', 'type', 'recorded_at']);
         });
     }
 

@@ -13,16 +13,16 @@ interface ServerDeleteModalProps {
         host: string;
         port: number;
     };
-    project: {
+    organization: {
         id: string;
     };
 }
 
-export default function ServerDeleteModal({ isOpen, onClose, server, project }: ServerDeleteModalProps) {
+export default function ServerDeleteModal({ isOpen, onClose, server, organization }: ServerDeleteModalProps) {
     const { delete: destroy, processing } = useForm();
 
     const handleDelete = () => {
-        destroy(route('projects.servers.destroy', [project.id, server.id]), {
+        destroy(route('organizations.servers.destroy', [organization.id, server.id]), {
             onSuccess: () => {
                 onClose();
             },

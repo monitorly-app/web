@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Project;
+
 use App\Models\Server;
 use App\Models\Metric;
+use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -45,35 +46,35 @@ class MetricsController extends Controller
 
             $applicationToken = substr($authHeader, 7);
 
-            // 3. Trouver le projet via l'URL
-            $projectId = $request->route('project_id');
-            $project = Project::where('id', $projectId)
+            // 3. Trouver l'organisation via l'URL
+            $organizationId = $request->route('organization_id');
+            $organization = Organization::where('id', $organizationId)
                 ->where('api_key', $applicationToken)
                 ->first();
 
-            if (!$project) {
-                Log::warning('Invalid project or API key', [
-                    'project_id' => $projectId,
+            if (!$organization) {
+                Log::warning('Invalid organization or API key', [
+                    'organization_id' => $organizationId,
                     'token_prefix' => substr($applicationToken, 0, 8) . '...'
                 ]);
-                return response()->json(['error' => 'Invalid project or API key'], 401);
+                return response()->json(['error' => 'Invalid organization or API key'], 401);
             }
 
             // 4. Vérifier les limites du plan
-            if (!$project->canMakeApiRequest()) {
+            if (!$organization->canMakeApiRequest()) {
                 return response()->json(['error' => 'API request limit exceeded'], 429);
             }
 
             // 5. Trouver ou créer le serveur
             $machineName = $request->input('machine_name');
-            $server = $project->servers()
+            $server = $organization->servers()
                 ->where('name', $machineName)
                 ->where('is_active', true)
                 ->first();
 
             if (!$server) {
                 // Créer automatiquement le serveur s'il n'existe pas
-                $server = $project->servers()->create([
+                $server = $organization->servers()->create([
                     'name' => $machineName,
                     'host' => $request->ip(),
                     'port' => 22,
@@ -85,7 +86,7 @@ class MetricsController extends Controller
                 Log::info('Auto-created server from probe', [
                     'server_id' => $server->id,
                     'machine_name' => $machineName,
-                    'project_id' => $project->id
+                    'organization_id' => $organization->id
                 ]);
             } else {
                 // Mettre à jour le statut du serveur existant
@@ -104,7 +105,7 @@ class MetricsController extends Controller
             // 7. Log de succès
             Log::info('Metrics received successfully', [
                 'server_id' => $server->id,
-                'project_id' => $project->id,
+                'organization_id' => $organization->id,
                 'metrics_count' => count($metrics),
                 'machine_name' => $machineName
             ]);
@@ -324,7 +325,7 @@ class MetricsController extends Controller
     /**
      * Obtenir les métriques récentes d'un serveur
      */
-    public function getServerMetrics(Request $request, string $projectId, string $serverId): JsonResponse
+    public function getServerMetrics(Request $request, string $organizationId, string $serverId): JsonResponse
     {
         // Authentification similaire...
         $authHeader = $request->header('Authorization');
@@ -333,22 +334,27 @@ class MetricsController extends Controller
         }
 
         $applicationToken = substr($authHeader, 7);
-        $project = Project::where('id', $projectId)
+        $organization = Organization::where('id', $organizationId)
             ->where('api_key', $applicationToken)
             ->first();
 
-        if (!$project) {
-            return response()->json(['error' => 'Invalid project or API key'], 401);
+        if (!$organization) {
+            return response()->json(['error' => 'Invalid organization or API key'], 401);
         }
 
-        $server = $project->servers()->where('id', $serverId)->first();
+        $server = $organization->servers()->where('id', $serverId)->first();
         if (!$server) {
             return response()->json(['error' => 'Server not found'], 404);
         }
 
-        // Récupérer le nombre de jours depuis les paramètres
-        $days = $request->input('days', 7);
-        $startDate = now()->subDays($days);
+        // Gérer les différents formats de période
+        $startDate = $this->calculateStartDate($request);
+
+        Log::info('Fetching metrics', [
+            'server_id' => $serverId,
+            'start_date' => $startDate->toISOString(),
+            'request_params' => $request->all()
+        ]);
 
         // Récupérer et grouper les métriques par type
         $metrics = $server->metrics()
@@ -368,11 +374,60 @@ class MetricsController extends Controller
             })->values();
         };
 
-        return response()->json([
+        $result = [
             'server' => $server,
             'cpu' => $formatMetrics($metrics['system']['cpu'] ?? collect()),
             'ram' => $formatMetrics($metrics['system']['ram'] ?? collect()),
             'disk' => $formatMetrics($metrics['system']['disk'] ?? collect()),
-        ]);
+            'period_info' => [
+                'start_date' => $startDate->toISOString(),
+                'end_date' => now()->toISOString(),
+                'duration_hours' => $startDate->diffInHours(now()),
+                'data_points' => [
+                    'cpu' => ($metrics['system']['cpu'] ?? collect())->count(),
+                    'ram' => ($metrics['system']['ram'] ?? collect())->count(),
+                    'disk' => ($metrics['system']['disk'] ?? collect())->count(),
+                ]
+            ]
+        ];
+
+        return response()->json($result);
+    }
+
+    /**
+     * Calculer la date de début selon les paramètres de période
+     */
+    private function calculateStartDate(Request $request): \Carbon\Carbon
+    {
+        // Nouveau format unifié : period=1h, period=24h, period=7d, etc.
+        if ($request->has('period')) {
+            $period = $request->input('period');
+
+            // Format : nombre + unité (h pour heures, d pour jours)
+            if (preg_match('/^(\d+)([hd])$/', $period, $matches)) {
+                $value = (int) $matches[1];
+                $unit = $matches[2];
+
+                if ($unit === 'h') {
+                    return now()->subHours($value);
+                } elseif ($unit === 'd') {
+                    return now()->subDays($value);
+                }
+            }
+        }
+
+        // Anciens paramètres pour compatibilité
+        if ($request->has('hours')) {
+            $hours = (int) $request->input('hours', 24);
+            return now()->subHours($hours);
+        }
+
+        if ($request->has('days')) {
+            $days = (int) $request->input('days', 7);
+            return now()->subDays($days);
+        }
+
+        // Valeur par défaut : 7 jours
+        return now()->subDays(7);
     }
 }

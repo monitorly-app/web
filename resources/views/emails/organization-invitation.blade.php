@@ -1,0 +1,44 @@
+@component('mail::message')
+    # You've been invited to join {{ $organization->name }}
+
+    Hello!
+
+    **{{ $invitedBy->name }}** has invited you to join the **{{ $organization->name }}** organization as a
+    **{{ $roleName }}**.
+
+    @if ($organization->description)
+        ## About this organization
+        {{ $organization->description }}
+    @endif
+
+    ## What's next?
+
+    Click the button below to accept the invitation and join the organization. If you don't have an account yet, you'll be
+    able to create one during the process.
+
+    @component('mail::button', ['url' => $acceptUrl, 'color' => 'primary'])
+        Accept Invitation
+    @endcomponent
+
+    ## Organization Details
+
+    - **Organization:** {{ $organization->name }}
+    - **Your Role:** {{ $roleName }}
+    - **Invited by:** {{ $invitedBy->name }}
+    - **Invitation sent:** {{ $invitation->created_at->format('F j, Y') }}
+
+    ---
+
+    If you're not interested in joining this organization, you can simply ignore this email. The invitation will expire
+    automatically after 7 days.
+
+    If you have any questions, please contact {{ $invitedBy->name }} directly at {{ $invitedBy->email }}.
+
+    Thanks,<br>
+    {{ config('app.name') }} Team
+
+    @slot('subcopy')
+        If you're having trouble clicking the "Accept Invitation" button, copy and paste the URL below into your web browser:
+        [{{ $acceptUrl }}]({{ $acceptUrl }})
+    @endslot
+@endcomponent

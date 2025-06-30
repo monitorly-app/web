@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Edit, MoreHorizontal, Plus, Trash, Users } from 'lucide-react';
@@ -53,7 +53,7 @@ export default function RolesIndex({ roles }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title="Roles" />
 
             <div className="p-6">
@@ -155,6 +155,6 @@ export default function RolesIndex({ roles }: Props) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </AppLayout>
+        </AdminLayout>
     );
 }

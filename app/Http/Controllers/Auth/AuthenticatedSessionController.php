@@ -6,18 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
      * Show the login page.
      */
-    public function create(Request $request): Response
+    public function create(Request $request): InertiaResponse
     {
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
@@ -34,6 +36,9 @@ class AuthenticatedSessionController extends Controller
 
         Session::regenerate();
 
+        // Debug log
+        Log::info('User authenticated: ' . Auth::user()->email);
+
         // Check if there's a pending invitation in session
         if (Session::has('invitation_token')) {
             $token = Session::get('invitation_token');
@@ -45,17 +50,23 @@ class AuthenticatedSessionController extends Controller
 
         // Check role ID
         if (Auth::user()->role_id === 1) {
-            return redirect()->intended(route('admin.dashboard', absolute: false));
+            Log::info('Admin user, redirecting to admin dashboard');
+            return redirect()->route('admin.dashboard');
         } else {
-            // For normal users, check if they have projects
+            // For normal users, check if they have organizations
             $user = Auth::user();
-            $lastProject = $user->projects()->latest()->first();
+            $organizationsCount = $user->ownedOrganizations()->count();
+            Log::info('User organizations count: ' . $organizationsCount);
 
-            if ($lastProject) {
-                return redirect()->intended(route('projects.dashboard', $lastProject->id, absolute: false));
+            $lastOrganization = $user->ownedOrganizations()->latest()->first();
+
+            if ($lastOrganization) {
+                Log::info('User has organizations, redirecting to: organizations.dashboard');
+                return redirect()->route('organizations.dashboard', $lastOrganization->id);
             } else {
-                // No projects yet, redirect to project creation
-                return redirect()->intended(route('projects.create', absolute: false));
+                // No organizations yet, redirect to organization creation
+                Log::info('User has no organizations, redirecting to: organizations.create');
+                return redirect()->route('organizations.create');
             }
         }
     }

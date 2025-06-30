@@ -32,6 +32,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
+            onSuccess: () => {
+                // La redirection sera gérée automatiquement par Inertia
+                // Pas besoin de code supplémentaire ici
+            },
         });
     };
 

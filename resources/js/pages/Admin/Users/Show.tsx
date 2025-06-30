@@ -1,7 +1,7 @@
 // resources/js/Pages/Admin/Users/Show.tsx
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Edit, Mail, Package, ShieldCheck, User } from 'lucide-react';
@@ -23,7 +23,7 @@ interface User {
     plan: {
         id: number;
         name: string;
-        price: number;
+        price: number | { yearly: number; monthly: number };
         frequency: number;
         max_servers: number;
         max_users: number;
@@ -58,7 +58,7 @@ export default function ShowUser({ user }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title={`User: ${user.name}`} />
 
             <div className="p-6">
@@ -162,7 +162,11 @@ export default function ShowUser({ user }: Props) {
                                     <ul className="space-y-1 text-sm">
                                         <li className="flex justify-between">
                                             <span>Price:</span>
-                                            <span className="font-medium">{user.plan.price} €</span>
+                                            <span className="font-medium">
+                                                {typeof user.plan.price === 'object'
+                                                    ? `${user.plan.price.yearly}€/an (${user.plan.price.monthly}€/mois)`
+                                                    : `${user.plan.price} €`}
+                                            </span>
                                         </li>
                                         <li className="flex justify-between">
                                             <span>Frequency:</span>
@@ -170,11 +174,11 @@ export default function ShowUser({ user }: Props) {
                                         </li>
                                         <li className="flex justify-between">
                                             <span>Max Servers:</span>
-                                            <span className="font-medium">{user.plan.max_servers}</span>
+                                            <span className="font-medium">{user.plan.max_servers === -1 ? 'Illimité' : user.plan.max_servers}</span>
                                         </li>
                                         <li className="flex justify-between">
                                             <span>Max Users:</span>
-                                            <span className="font-medium">{user.plan.max_users}</span>
+                                            <span className="font-medium">{user.plan.max_users === -1 ? 'Illimité' : user.plan.max_users}</span>
                                         </li>
                                     </ul>
                                 </div>
@@ -183,6 +187,6 @@ export default function ShowUser({ user }: Props) {
                     </Card>
                 </div>
             </div>
-        </AppLayout>
+        </AdminLayout>
     );
 }

@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 import { Activity, ArrowLeft, CheckCircle, Clock, Edit, Server, Trash, Wifi } from 'lucide-react';
 
 interface ServerHeaderProps {
-    project: { id: string; name: string };
+    organization: { id: string; name: string };
     server: {
         id: string;
         name: string;
@@ -20,7 +20,7 @@ interface ServerHeaderProps {
     onDelete: () => void;
 }
 
-export default function ServerHeader({ project, server, permissions, onEdit, onDelete }: ServerHeaderProps) {
+export default function ServerHeader({ organization, server, permissions, onEdit, onDelete }: ServerHeaderProps) {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'online':
@@ -67,7 +67,7 @@ export default function ServerHeader({ project, server, permissions, onEdit, onD
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-6">
                     <Button variant="ghost" size="sm" asChild className="text-slate-600 hover:text-slate-900">
-                        <Link href={`/projects/${project.id}/servers`}>
+                        <Link href={`/organizations/${organization.id}/servers`}>
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Retour aux serveurs
                         </Link>

@@ -13,24 +13,17 @@ return new class extends Migration
     {
         Schema::create('servers', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('project_id')->constrained('projects')->onDelete('cascade');
             $table->string('name');
-            $table->string('host');
-            $table->integer('port')->default(22);
+            $table->string('hostname')->nullable();
+            $table->string('ip_address')->nullable();
             $table->text('description')->nullable();
+            $table->string('os')->nullable();
+            $table->string('status')->default('offline');
+            $table->timestamp('last_ping')->nullable();
             $table->string('token')->unique();
-            $table->enum('status', ['pending', 'online', 'offline', 'warning', 'error'])->default('pending');
-            $table->bigInteger('boot_time')->nullable();
-            $table->timestamp('last_seen_at')->nullable();
-            $table->json('last_metrics')->nullable();
-            $table->string('agent_version')->nullable();
-            $table->json('system_info')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->json('monitoring_config')->nullable();
+            $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
             $table->timestamps();
-
-            $table->index(['project_id', 'status']);
-            $table->index(['project_id', 'is_active']);
-            $table->index('token');
         });
     }
 

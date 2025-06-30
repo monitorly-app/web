@@ -21,7 +21,13 @@ export function NavUser() {
     const isAdmin = auth.user.role_id === 1;
 
     const handleSwitchAccount = () => {
-        router.post(route('admin.switch-account'));
+        if (admin_mode) {
+            // Si en mode admin, switcher vers personnel
+            router.post(route('admin.switch-account'));
+        } else {
+            // Si en mode personnel, switcher vers admin
+            router.post(route('admin.switch-to-admin'));
+        }
     };
 
     return (

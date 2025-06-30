@@ -12,8 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('first_name')->nullable()->after('name');
-            $table->string('last_name')->nullable()->after('first_name');
             $table->foreignId('role_id')->nullable()->after('password')->constrained();
             $table->boolean('is_active')->default(false)->after('role_id');
         });

@@ -14,26 +14,25 @@ class Server extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'project_id',
         'name',
-        'host',
-        'port',
+        'hostname',
+        'ip_address',
+        // 'port',
         'description',
-        'token',
+        'os',
         'status',
-        'last_seen_at',
-        'last_metrics',
-        'agent_version',
-        'system_info',
-        'is_active',
-        'boot_time',
+        'last_ping',
+        'monitoring_token',
+        'organization_id',
+        'token',
+        'monitoring_config',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
         'last_seen_at' => 'datetime',
         'last_metrics' => 'array',
         'system_info' => 'array',
+        'monitoring_config' => 'array',
     ];
 
     protected static function boot()
@@ -47,13 +46,7 @@ class Server extends Model
         });
     }
 
-    /**
-     * Relation avec le projet
-     */
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(Project::class);
-    }
+
 
     /**
      * Relation avec les métriques
@@ -185,11 +178,27 @@ class Server extends Model
     }
 
     /**
-     * Scope pour les serveurs actifs
+     * Scope pour les serveurs actifs (considère online et warning comme actifs)
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->whereIn('status', ['online', 'warning']);
+    }
+
+    /**
+     * Scope pour les serveurs en ligne
+     */
+    public function scopeOnline($query)
+    {
+        return $query->where('status', 'online');
+    }
+
+    /**
+     * Scope pour les serveurs hors ligne
+     */
+    public function scopeOffline($query)
+    {
+        return $query->where('status', 'offline');
     }
 
     /**
@@ -217,5 +226,13 @@ class Server extends Model
         }
 
         return round($size, 2) . ' ' . $units[$unitIndex];
+    }
+
+    /**
+     * The organization that owns the server.
+     */
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
     }
 }

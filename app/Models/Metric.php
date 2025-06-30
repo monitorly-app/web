@@ -11,12 +11,11 @@ class Metric extends Model
     use HasFactory;
 
     protected $fillable = [
+        'organization_id',
         'server_id',
-        'category',
-        'name',
-        'value',
-        'metadata',
-        'timestamp',
+        'type',
+        'data',
+        'recorded_at',
     ];
 
     protected $casts = [
@@ -63,5 +62,13 @@ class Metric extends Model
     public function scopeBetween($query, $start, $end)
     {
         return $query->whereBetween('timestamp', [$start, $end]);
+    }
+
+    /**
+     * The organization this metric belongs to.
+     */
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
     }
 }

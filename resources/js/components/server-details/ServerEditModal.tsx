@@ -17,12 +17,12 @@ interface ServerEditModalProps {
         port: number;
         description?: string;
     };
-    project: {
+    organization: {
         id: string;
     };
 }
 
-export default function ServerEditModal({ isOpen, onClose, server, project }: ServerEditModalProps) {
+export default function ServerEditModal({ isOpen, onClose, server, organization }: ServerEditModalProps) {
     const { data, setData, put, processing, errors, reset } = useForm({
         name: server.name,
         host: server.host,
@@ -32,7 +32,7 @@ export default function ServerEditModal({ isOpen, onClose, server, project }: Se
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(route('projects.servers.update', [project.id, server.id]), {
+        put(route('organizations.servers.update', [organization.id, server.id]), {
             onSuccess: () => {
                 onClose();
                 reset();

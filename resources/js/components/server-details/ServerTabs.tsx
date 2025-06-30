@@ -8,19 +8,19 @@ import SystemInformation from './SystemInformation';
 
 interface ServerTabsProps {
     server: any;
-    project: any;
+    organization: any;
 }
 
-export default function ServerTabs({ server, project }: ServerTabsProps) {
+export default function ServerTabs({ server, organization }: ServerTabsProps) {
     // Debug - affichons les données pour s'assurer qu'elles arrivent
     console.log('ServerTabs - server:', server);
-    console.log('ServerTabs - project:', project);
+    console.log('ServerTabs - organization:', organization);
 
     return (
         <div className="border-border bg-card rounded-xl border shadow-sm">
             <Tabs defaultValue="overview" className="w-full">
                 <div className="border-border border-b p-2">
-                    <TabsList className="bg-muted grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5">
+                    <TabsList className="bg-accent grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5">
                         <TabsTrigger
                             value="overview"
                             className="data-[state=active]:bg-card data-[state=active]:text-card-foreground flex items-center gap-2 data-[state=active]:shadow-sm"
@@ -85,7 +85,7 @@ export default function ServerTabs({ server, project }: ServerTabsProps) {
                             <div>
                                 <h3 className="text-card-foreground mb-2 text-lg font-semibold">Historique des performances</h3>
                                 <p className="text-muted-foreground mb-4 text-sm">Évolution des métriques dans le temps</p>
-                                <MetricsCharts project={project} server={server} />
+                                <MetricsCharts organization={organization} server={server} />
                             </div>
                         </div>
                     </TabsContent>
@@ -124,7 +124,7 @@ export default function ServerTabs({ server, project }: ServerTabsProps) {
                             <div>
                                 <h3 className="text-card-foreground mb-2 text-lg font-semibold">Agent de monitoring</h3>
                                 <p className="text-muted-foreground mb-4 text-sm">Installation et configuration de l'agent de surveillance</p>
-                                <AgentInstallation server={server} project={project} />
+                                <AgentInstallation server={server} organization={organization} />
                             </div>
                         </div>
                     </TabsContent>

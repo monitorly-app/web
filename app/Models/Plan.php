@@ -17,18 +17,27 @@ class Plan extends Model
      */
     protected $fillable = [
         'name',
+        'slug',
+        'description',
         'price',
         'frequency',
         'max_servers',
         'max_users',
-        'max_projects',
+        'max_organizations',
         'max_metrics',
         'max_alerts',
-        'description',
+        'features',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'features' => 'array',
+        'is_active' => 'boolean',
+        'price' => 'array',
     ];
 
     /**
-     * Get the users associated with the plan.
+     * Get the users for the plan.
      */
     public function users(): HasMany
     {
@@ -68,5 +77,37 @@ class Plan extends Model
         $limit = $this->$field;
 
         return $limit === -1 || $currentCount < $limit;
+    }
+
+    /**
+     * Get monthly price
+     */
+    public function getMonthlyPrice(): float
+    {
+        return $this->price['monthly'] ?? 0;
+    }
+
+    /**
+     * Get yearly price
+     */
+    public function getYearlyPrice(): float
+    {
+        return $this->price['yearly'] ?? 0;
+    }
+
+    /**
+     * Get savings percentage when choosing yearly
+     */
+    public function getYearlySavings(): float
+    {
+        $monthly = $this->getMonthlyPrice();
+        $yearly = $this->getYearlyPrice();
+
+        if ($monthly == 0 || $yearly == 0) {
+            return 0;
+        }
+
+        $yearlyEquivalent = $monthly * 12;
+        return round((($yearlyEquivalent - $yearly) / $yearlyEquivalent) * 100);
     }
 }

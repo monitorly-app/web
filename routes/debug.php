@@ -4,13 +4,22 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 
-Route::any('/debug/{project_id}/metrics', function ($projectId) {
+Route::any('/debug/{organization_id}/metrics', function ($organizationId) {
     Log::info('DEBUG: Metrics endpoint hit', [
-        'project_id' => $projectId,
+        'organization_id' => $organizationId,
         'method' => request()->method(),
         'headers' => request()->headers->all(),
-        'body' => request()->all()
+        'body' => request()->all(),
+        'ip' => request()->ip(),
+        'user_agent' => request()->userAgent(),
     ]);
 
-    return response()->json(['debug' => 'endpoint hit', 'project_id' => $projectId]);
+    return response()->json([
+        'organization_id' => $organizationId,
+        'method' => request()->method(),
+        'headers' => request()->headers->all(),
+        'body' => request()->all(),
+        'ip' => request()->ip(),
+        'user_agent' => request()->userAgent(),
+    ]);
 });

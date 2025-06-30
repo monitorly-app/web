@@ -16,7 +16,7 @@ use Inertia\Response;
 class RegisteredUserController extends Controller
 {
     /**
-     * Show the registration page.
+     * Display the registration view.
      */
     public function create(): Response
     {
@@ -65,7 +65,7 @@ class RegisteredUserController extends Controller
             return redirect()->route('invitations.accept', $token);
         }
 
-        // Default redirect for new users
-        return redirect()->route('projects.create');
+        // After registration, redirect to organization creation
+        return redirect()->route('organizations.create');
     }
 }

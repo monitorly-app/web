@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 
@@ -35,7 +35,7 @@ export default function CreateRole() {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title="Add Role" />
 
             <div className="p-6">
@@ -74,6 +74,6 @@ export default function CreateRole() {
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </AdminLayout>
     );
 }

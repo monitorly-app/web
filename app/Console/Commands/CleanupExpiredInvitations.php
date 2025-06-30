@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\ProjectInvitation;
+use App\Models\OrganizationInvitation;
 use Illuminate\Console\Command;
 
 class CleanupExpiredInvitations extends Command
@@ -19,7 +19,7 @@ class CleanupExpiredInvitations extends Command
      *
      * @var string
      */
-    protected $description = 'Clean up expired project invitations';
+    protected $description = 'Clean up expired organization invitations';
 
     /**
      * Execute the console command.
@@ -27,7 +27,7 @@ class CleanupExpiredInvitations extends Command
     public function handle(): int
     {
         // Get expired invitations
-        $expiredInvitations = ProjectInvitation::expired()
+        $expiredInvitations = OrganizationInvitation::expired()
             ->where('status', 'pending')
             ->get();
 
@@ -48,7 +48,7 @@ class CleanupExpiredInvitations extends Command
         }
 
         // Mark as expired instead of deleting
-        ProjectInvitation::expired()
+        OrganizationInvitation::expired()
             ->where('status', 'pending')
             ->update(['status' => 'expired']);
 

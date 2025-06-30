@@ -5,14 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 
 interface Plan {
     id: number;
     name: string;
-    price: number;
+    price: {
+        monthly: number;
+        yearly: number;
+    };
     frequency: number;
     max_servers: number;
     max_users: number;
@@ -41,7 +44,8 @@ export default function EditPlan({ plan }: Props) {
 
     const { data, setData, patch, processing, errors } = useForm({
         name: plan.name,
-        price: plan.price.toString(),
+        price_monthly: plan.price?.monthly?.toString() || '0',
+        price_yearly: plan.price?.yearly?.toString() || '0',
         frequency: plan.frequency.toString(),
         max_servers: plan.max_servers.toString(),
         max_users: plan.max_users.toString(),
@@ -54,7 +58,7 @@ export default function EditPlan({ plan }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit Plan: ${plan.name}`} />
 
             <div className="p-6">
@@ -75,18 +79,33 @@ export default function EditPlan({ plan }: Props) {
 
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="price">Price (€)</Label>
+                                    <Label htmlFor="price_monthly">Monthly Price (€)</Label>
                                     <Input
-                                        id="price"
+                                        id="price_monthly"
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        value={data.price}
-                                        onChange={(e) => setData('price', e.target.value)}
+                                        value={data.price_monthly}
+                                        onChange={(e) => setData('price_monthly', e.target.value)}
                                     />
-                                    <InputError message={errors.price} />
+                                    <InputError message={errors.price_monthly} />
                                 </div>
 
+                                <div className="space-y-2">
+                                    <Label htmlFor="price_yearly">Yearly Price (€)</Label>
+                                    <Input
+                                        id="price_yearly"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={data.price_yearly}
+                                        onChange={(e) => setData('price_yearly', e.target.value)}
+                                    />
+                                    <InputError message={errors.price_yearly} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="frequency">Frequency (minutes)</Label>
                                     <Input
@@ -102,11 +121,11 @@ export default function EditPlan({ plan }: Props) {
 
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="max_servers">Max Servers</Label>
+                                    <Label htmlFor="max_servers">Max Servers (-1 for unlimited)</Label>
                                     <Input
                                         id="max_servers"
                                         type="number"
-                                        min="1"
+                                        min="-1"
                                         value={data.max_servers}
                                         onChange={(e) => setData('max_servers', e.target.value)}
                                     />
@@ -114,11 +133,11 @@ export default function EditPlan({ plan }: Props) {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="max_users">Max Users</Label>
+                                    <Label htmlFor="max_users">Max Users (-1 for unlimited)</Label>
                                     <Input
                                         id="max_users"
                                         type="number"
-                                        min="1"
+                                        min="-1"
                                         value={data.max_users}
                                         onChange={(e) => setData('max_users', e.target.value)}
                                     />
@@ -146,6 +165,6 @@ export default function EditPlan({ plan }: Props) {
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </AdminLayout>
     );
 }

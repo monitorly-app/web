@@ -8,32 +8,138 @@ use Illuminate\Http\Response;
 
 class InstallController extends Controller
 {
-    /**
-     * Générer le script d'installation pour un serveur spécifique
-     */
-    public function generateScript(Request $request, string $serverToken): Response
-    {
-        // Trouver le serveur par son token
-        $server = Server::where('token', $serverToken)->first();
+  /**
+   * Générer le script d'installation pour un serveur spécifique
+   */
+  public function generateScript(Request $request, string $serverToken): Response
+  {
+    // Vérifier d'abord si c'est un token de serveur existant
+    $server = Server::where('token', $serverToken)->first();
 
-        if (!$server) {
-            abort(404, 'Server token not found');
-        }
+    if ($server) {
+      // Serveur existant - utiliser l'ancien système
+      return $this->generateExistingServerScript($server);
+    }
 
-        $project = $server->project;
-        $baseUrl = config('app.url');
-        $apiUrl = "{$baseUrl}/api/projects";
+    // Nouveau système - récupérer depuis la session
+    $pendingServer = session('pending_server');
 
-        $script = <<<BASH
+    if (!$pendingServer || $pendingServer['token'] !== $serverToken) {
+      abort(404, 'Server configuration not found or expired');
+    }
+
+    $organization = \App\Models\Organization::findOrFail($pendingServer['organization_id']);
+    $serverName = $pendingServer['name'];
+    $selectedMetrics = $pendingServer['metrics'];
+
+    return $this->generateDynamicScript($organization, $serverName, $serverToken, $selectedMetrics);
+  }
+
+  /**
+   * Générer le script pour un serveur existant (ancien système)
+   */
+  private function generateExistingServerScript(Server $server): Response
+  {
+    $organization = $server->organization;
+    $baseUrl = config('app.url');
+    $apiUrl = "{$baseUrl}/api/organizations";
+
+    $script = <<<BASH
 #!/bin/bash
 
 # Script d'installation automatique Monitorly
 # Serveur: {$server->name}
-# Projet: {$project->name}
+# Organisation: {$organization->name}
 
 set -e
 
 echo "🚀 Installation Monitorly Probe pour: {$server->name}"
+echo "📡 Serveur: {$baseUrl}"
+
+# 1. Installer la probe Monitorly
+echo "📦 Installation de la probe..."
+if ! curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash; then
+    echo "❌ Erreur lors de l'installation de la probe"
+    exit 1
+fi
+
+# Configuration par défaut (toutes les métriques)
+cat > \$HOME/.monitorly/config.yaml << 'EOF'
+machine_name: "{$server->name}"
+
+collection:
+  cpu:
+    enabled: true
+    interval: 30s
+  ram:
+    enabled: true
+    interval: 30s
+  disk:
+    enabled: true
+    interval: 60s
+    mount_points:
+      - path: "/"
+        label: "root"
+        collect_usage: true
+        collect_percent: true
+  user_activity:
+    enabled: true
+    interval: 2m
+  login_failures:
+    enabled: true
+    interval: 5m
+  port:
+    enabled: true
+    interval: 10m
+
+sender:
+  target: "api"
+  send_interval: 2m
+
+api:
+  url: "{$apiUrl}"
+  organization_id: "{$organization->id}"
+  application_token: "{$organization->api_key}"
+  encryption_key: "{$organization->encryption_key}"
+
+log_file:
+  path: "\$HOME/.monitorly/metrics.log"
+
+logging:
+  file_path: "\$HOME/.monitorly/monitorly.log"
+EOF
+
+echo "✅ Configuration par défaut appliquée"
+echo "🎉 Installation terminée pour: {$server->name}"
+BASH;
+
+    return response($script, 200, [
+      'Content-Type' => 'text/plain',
+      'Content-Disposition' => 'inline; filename="install-' . $server->name . '.sh"'
+    ]);
+  }
+
+  /**
+   * Générer le script dynamique basé sur les métriques sélectionnées
+   */
+  private function generateDynamicScript($organization, $serverName, $serverToken, $selectedMetrics): Response
+  {
+    $baseUrl = config('app.url');
+    $apiUrl = "{$baseUrl}/api/organizations";
+
+    // Générer la configuration des métriques
+    $metricsConfig = $this->generateMetricsConfig($selectedMetrics);
+
+    $script = <<<BASH
+#!/bin/bash
+
+# Script d'installation automatique Monitorly
+# Serveur: {$serverName}
+# Organisation: {$organization->name}
+
+set -e
+
+echo "🚀 Installation Monitorly Probe pour: {$serverName}"
 echo "📡 Serveur: {$baseUrl}"
 
 # 1. Installer la probe Monitorly
@@ -51,42 +157,11 @@ echo "⚙️  Configuration automatique..."
 mkdir -p \$HOME/.monitorly
 
 cat > \$HOME/.monitorly/config.yaml << 'EOF'
-# Configuration Monitorly - {$server->name}
-machine_name: "{$server->name}"
+# Configuration Monitorly - {$serverName}
+machine_name: "{$serverName}"
 
 collection:
-  # Métriques système de base
-  cpu:
-    enabled: true
-    interval: 30s
-  
-  ram:
-    enabled: true
-    interval: 30s
-  
-  disk:
-    enabled: true
-    interval: 60s
-    mount_points:
-      - path: "/"
-        label: "root"
-        collect_usage: true
-        collect_percent: true
-
-  # Activité utilisateur (sessions SSH, etc.)
-  user_activity:
-    enabled: true
-    interval: 2m
-
-  # Tentatives de connexion échouées
-  login_failures:
-    enabled: true
-    interval: 5m
-
-  # Surveillance des ports ouverts
-  port:
-    enabled: true
-    interval: 10m
+{$metricsConfig}
 
 sender:
   target: "api"
@@ -94,9 +169,9 @@ sender:
 
 api:
   url: "{$apiUrl}"
-  project_id: "{$project->id}"
-  application_token: "{$project->api_key}"
-  encryption_key: "{$project->encryption_key}"
+  organization_id: "{$organization->id}"
+  application_token: "{$organization->api_key}"
+  encryption_key: "{$organization->encryption_key}"
 
 log_file:
   path: "\$HOME/.monitorly/metrics.log"
@@ -146,7 +221,7 @@ send_system_info() {
     # Créer le payload JSON pour les informations système
     SYSTEM_PAYLOAD=\$(cat <<EOFPAYLOAD
 {
-  "machine_name": "{$server->name}",
+  "machine_name": "{$serverName}",
   "metrics": [
     {
       "timestamp": "\$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -170,9 +245,9 @@ EOFPAYLOAD
     # Envoyer les informations système
     echo "📡 Envoi des informations système..."
     RESPONSE=\$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST \
-      "{$apiUrl}/{$project->id}" \
+      "{$apiUrl}/{$organization->id}" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer {$project->api_key}" \
+      -H "Authorization: Bearer {$organization->api_key}" \
       -H "User-Agent: Monitorly-Probe/v0.1.0" \
       -d "\$SYSTEM_PAYLOAD")
     
@@ -206,13 +281,10 @@ sleep 3
 if sudo systemctl is-active --quiet monitorly-probe; then
     echo "✅ Installation réussie !"
     echo "📊 Probe active et en cours d'envoi des métriques"
-    echo "🌐 Tableau de bord: {$baseUrl}/projects/{$project->id}/servers"
+    echo "🌐 Tableau de bord: {$baseUrl}/organizations/{$organization->id}/servers"
     echo ""
-    echo "📊 Métriques collectées:"
-    echo "  • CPU, RAM, Disk (métriques temps réel)"
-    echo "  • Informations système (OS, CPU, mémoire totale)"
-    echo "  • Activité utilisateur et sécurité"
-    echo "  • Surveillance des connexions et ports"
+    echo "📊 Métriques configurées:"
+{$this->generateMetricsDescription($selectedMetrics)}
     echo ""
     echo "📋 Statut du service:"
     sudo systemctl status monitorly-probe --no-pager -l
@@ -224,13 +296,116 @@ else
 fi
 
 echo ""
-echo "🎉 Installation terminée pour: {$server->name}"
+echo "🎉 Installation terminée pour: {$serverName}"
 echo "Les métriques apparaîtront dans votre tableau de bord dans 1-2 minutes."
 BASH;
 
-        return response($script, 200, [
-            'Content-Type' => 'text/plain',
-            'Content-Disposition' => 'inline; filename="install-' . $server->name . '.sh"'
-        ]);
+    return response($script, 200, [
+      'Content-Type' => 'text/plain',
+      'Content-Disposition' => 'inline; filename="install-' . $serverName . '.sh"'
+    ]);
+  }
+
+  /**
+   * Générer la configuration YAML pour les métriques sélectionnées
+   */
+  private function generateMetricsConfig(array $selectedMetrics): string
+  {
+    $config = [];
+
+    if (in_array('cpu', $selectedMetrics)) {
+      $config[] = "  # Métriques CPU";
+      $config[] = "  cpu:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 30s";
+      $config[] = "";
     }
+
+    if (in_array('ram', $selectedMetrics)) {
+      $config[] = "  # Métriques mémoire";
+      $config[] = "  ram:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 30s";
+      $config[] = "";
+    }
+
+    if (in_array('disk', $selectedMetrics)) {
+      $config[] = "  # Métriques disque";
+      $config[] = "  disk:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 60s";
+      $config[] = "    mount_points:";
+      $config[] = "      - path: \"/\"";
+      $config[] = "        label: \"root\"";
+      $config[] = "        collect_usage: true";
+      $config[] = "        collect_percent: true";
+      $config[] = "";
+    }
+
+    if (in_array('network', $selectedMetrics)) {
+      $config[] = "  # Métriques réseau";
+      $config[] = "  network:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 60s";
+      $config[] = "";
+    }
+
+    if (in_array('user_activity', $selectedMetrics)) {
+      $config[] = "  # Activité utilisateur";
+      $config[] = "  user_activity:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 2m";
+      $config[] = "";
+    }
+
+    if (in_array('login_failures', $selectedMetrics)) {
+      $config[] = "  # Tentatives de connexion échouées";
+      $config[] = "  login_failures:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 5m";
+      $config[] = "";
+    }
+
+    if (in_array('port_monitoring', $selectedMetrics)) {
+      $config[] = "  # Surveillance des ports";
+      $config[] = "  port:";
+      $config[] = "    enabled: true";
+      $config[] = "    interval: 10m";
+      $config[] = "";
+    }
+
+    return implode("\n", $config);
+  }
+
+  /**
+   * Générer la description des métriques pour l'affichage final
+   */
+  private function generateMetricsDescription(array $selectedMetrics): string
+  {
+    $descriptions = [];
+
+    if (in_array('cpu', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • CPU Usage (temps réel)\"";
+    }
+    if (in_array('ram', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • Memory Usage (temps réel)\"";
+    }
+    if (in_array('disk', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • Disk Usage (espace disque)\"";
+    }
+    if (in_array('network', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • Network Traffic (bande passante)\"";
+    }
+    if (in_array('user_activity', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • User Activity (sessions SSH)\"";
+    }
+    if (in_array('login_failures', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • Login Failures (tentatives échouées)\"";
+    }
+    if (in_array('port_monitoring', $selectedMetrics)) {
+      $descriptions[] = "    echo \"  • Port Monitoring (services)\"";
+    }
+
+    return implode("\n", $descriptions);
+  }
 }

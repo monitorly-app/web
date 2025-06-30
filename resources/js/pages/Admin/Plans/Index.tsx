@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Clock, Edit, MoreHorizontal, Plus, Server, Trash, Users } from 'lucide-react';
@@ -13,7 +13,12 @@ import { useState } from 'react';
 interface Plan {
     id: number;
     name: string;
-    price: number;
+    price:
+        | {
+              monthly: number;
+              yearly: number;
+          }
+        | number; // Support both formats for compatibility
     frequency: number;
     max_servers: number;
     max_users: number;
@@ -36,6 +41,16 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const formatPrice = (price: Plan['price']) => {
+    if (typeof price === 'number') {
+        return `${price} €`;
+    }
+    if (price.yearly === 0) {
+        return 'Gratuit';
+    }
+    return `${price.yearly}€/an (${price.monthly}€/mois)`;
+};
+
 export default function PlansIndex({ plans }: Props) {
     const [searchTerm, setSearchTerm] = useState('');
     const [planToDelete, setPlanToDelete] = useState<Plan | null>(null);
@@ -57,7 +72,7 @@ export default function PlansIndex({ plans }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title="Plans" />
 
             <div className="p-6">
@@ -103,7 +118,7 @@ export default function PlansIndex({ plans }: Props) {
                                     {filteredPlans.map((plan) => (
                                         <tr key={plan.id} className="hover:bg-muted/50 border-b">
                                             <td className="px-4 py-3 font-medium">{plan.name}</td>
-                                            <td className="px-4 py-3">{plan.price} €</td>
+                                            <td className="px-4 py-3">{formatPrice(plan.price)}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center">
                                                     <Clock className="text-muted-foreground mr-2 h-4 w-4" />
@@ -113,13 +128,13 @@ export default function PlansIndex({ plans }: Props) {
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center">
                                                     <Server className="text-muted-foreground mr-2 h-4 w-4" />
-                                                    <span>{plan.max_servers}</span>
+                                                    <span>{plan.max_servers === -1 ? 'Illimité' : plan.max_servers}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center">
                                                     <Users className="text-muted-foreground mr-2 h-4 w-4" />
-                                                    <span>{plan.max_users}</span>
+                                                    <span>{plan.max_users === -1 ? 'Illimité' : plan.max_users}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">{plan.users_count}</td>
@@ -175,6 +190,6 @@ export default function PlansIndex({ plans }: Props) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </AppLayout>
+        </AdminLayout>
     );
 }

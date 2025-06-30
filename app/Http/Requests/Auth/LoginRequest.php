@@ -39,6 +39,7 @@ class LoginRequest extends FormRequest
      */
     public function authenticate(): void
     {
+        \Log::info('LoginRequest authenticate called for: ' . $this->input('email'));
         $this->ensureIsNotRateLimited();
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
@@ -80,6 +81,6 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('email')) . '|' . $this->ip());
     }
 }

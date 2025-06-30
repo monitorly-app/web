@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
+import AdminLayout from "@/layouts/admin-layout";
 import { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 
@@ -53,7 +53,7 @@ export default function CreateUser({ roles, plans }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title="Add User" />
 
             <div className="p-6">
@@ -131,6 +131,6 @@ export default function CreateUser({ roles, plans }: Props) {
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </AdminLayout>
     );
 }
