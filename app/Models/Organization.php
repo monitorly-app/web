@@ -32,12 +32,17 @@ class Organization extends Model
         'encryption_key',
         'plan_id',
         'subscription_status',
+        'organization_type',
+        'billing_period',
+        'billing_address',
+        'tax_number',
     ];
 
     protected $casts = [
         'api_key_last_used_at' => 'datetime',
         'api_requests_reset_date' => 'date',
         'api_requests_count' => 'integer',
+        'billing_address' => 'array',
     ];
 
     protected $hidden = [

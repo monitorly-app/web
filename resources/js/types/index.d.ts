@@ -130,6 +130,7 @@ export interface SharedData {
         currentCount: number;
         maxAllowed: number;
         planName: string;
+        allowed: boolean;
     };
     flash?: {
         success?: string;

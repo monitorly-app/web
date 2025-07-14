@@ -1,16 +1,21 @@
-import { Clock, Cpu, HardDrive, MemoryStick, Network, Users, Zap } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Shield, UserCheck, AlertTriangle, Wifi } from 'lucide-react';
 import { Progress } from '../ui/progress';
+
+interface Service {
+    name: string;
+    label: string;
+    status: string;
+    running: boolean;
+}
 
 interface ServerMetrics {
     cpu_usage: number;
     memory_usage: number;
     disk_usage: number;
-    network_in: number;
-    network_out: number;
-    uptime: number;
-    load_average: number[];
-    processes_count: number;
-    connections_count: number;
+    services: Service[];
+    user_activity: any[];
+    login_failures: any[];
+    ports: any[];
 }
 
 interface MetricsOverviewProps {
@@ -23,36 +28,12 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
         cpu_usage: metrics?.cpu_usage ?? 0,
         memory_usage: metrics?.memory_usage ?? 0,
         disk_usage: metrics?.disk_usage ?? 0,
-        network_in: metrics?.network_in ?? 0,
-        network_out: metrics?.network_out ?? 0,
-        uptime: metrics?.uptime ?? 0,
-        load_average: metrics?.load_average ?? [0, 0, 0],
-        processes_count: metrics?.processes_count ?? 0,
-        connections_count: metrics?.connections_count ?? 0,
+        services: metrics?.services ?? [],
+        user_activity: metrics?.user_activity ?? [],
+        login_failures: metrics?.login_failures ?? [],
+        ports: metrics?.ports ?? [],
     };
 
-    const formatBytes = (bytes: number): string => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-    };
-
-    const formatUptime = (seconds: number): string => {
-        if (seconds === 0) return 'N/A';
-
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-
-        let result = '';
-        if (days > 0) result += `${days}j `;
-        if (hours > 0) result += `${hours}h `;
-        if (minutes > 0 && days === 0) result += `${minutes}m`;
-
-        return result.trim() || "Moins d'une minute";
-    };
 
     const getUsageColor = (usage: number): string => {
         if (usage >= 90) return 'text-red-600 dark:text-red-400';
@@ -71,6 +52,14 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
         if (usage >= 75) return 'bg-amber-100 dark:bg-amber-900/30';
         return 'bg-muted';
     };
+
+    const getServiceStatusSummary = () => {
+        const activeServices = safeMetrics.services.filter(service => service.running).length;
+        const totalServices = safeMetrics.services.length;
+        return { active: activeServices, total: totalServices };
+    };
+
+    const servicesSummary = getServiceStatusSummary();
 
     const metricCards = [
         {
@@ -95,12 +84,11 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
             description: 'Stockage utilisé',
         },
         {
-            title: 'Temps de fonctionnement',
-            value: formatUptime(safeMetrics.uptime),
-            icon: Clock,
-            usage: 0,
-            description: "Durée d'activité",
-            hideProgress: true,
+            title: 'Services',
+            value: `${servicesSummary.active}/${servicesSummary.total}`,
+            icon: Shield,
+            usage: servicesSummary.total > 0 ? (servicesSummary.active / servicesSummary.total) * 100 : 100,
+            description: 'Services actifs',
         },
     ];
 
@@ -138,78 +126,108 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
                 })}
             </div>
 
-            {/* Métriques détaillées avec cards modernes */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                {/* Charge système */}
-                <div className="bg-card border-border rounded-xl border p-6 transition-all hover:shadow-sm">
+            {/* Services détaillés */}
+            {safeMetrics.services.length > 0 && (
+                <div className="bg-card border-border rounded-xl border p-6">
                     <div className="mb-4 flex items-center space-x-3">
                         <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/20">
-                            <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h3 className="text-card-foreground text-sm font-medium">Charge système</h3>
-                            <p className="text-muted-foreground text-xs">Load average</p>
+                            <h3 className="text-card-foreground text-sm font-medium">État des services</h3>
+                            <p className="text-muted-foreground text-xs">Services surveillés</p>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">1 min</span>
-                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[0]?.toFixed(2) || '0.00'}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">5 min</span>
-                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[1]?.toFixed(2) || '0.00'}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">15 min</span>
-                            <span className="text-card-foreground font-medium">{safeMetrics.load_average[2]?.toFixed(2) || '0.00'}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Réseau */}
-                <div className="bg-card border-border rounded-xl border p-6 transition-all hover:shadow-sm">
-                    <div className="mb-4 flex items-center space-x-3">
-                        <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/20">
-                            <Network className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-card-foreground text-sm font-medium">Trafic réseau</h3>
-                            <p className="text-muted-foreground text-xs">Entrée / Sortie</p>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Entrant</span>
-                            <span className="text-card-foreground font-medium">{formatBytes(safeMetrics.network_in)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Sortant</span>
-                            <span className="text-card-foreground font-medium">{formatBytes(safeMetrics.network_out)}</span>
-                        </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {safeMetrics.services.map((service, index) => (
+                            <div key={index} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                                <div className="flex items-center space-x-2">
+                                    <div className={`h-2 w-2 rounded-full ${service.running ? 'bg-green-500' : 'bg-red-500'}`} />
+                                    <span className="text-sm font-medium">{service.label || service.name}</span>
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full ${service.running ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                    {service.status}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
+            )}
 
-                {/* Processus */}
+            {/* Nouvelles métriques PROBE.md en grid */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                {/* Activité utilisateurs */}
                 <div className="bg-card border-border rounded-xl border p-6 transition-all hover:shadow-sm">
                     <div className="mb-4 flex items-center space-x-3">
                         <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/20">
-                            <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
                         </div>
                         <div>
-                            <h3 className="text-card-foreground text-sm font-medium">Processus</h3>
-                            <p className="text-muted-foreground text-xs">Activité système</p>
+                            <h3 className="text-card-foreground text-sm font-medium">Activité utilisateurs</h3>
+                            <p className="text-muted-foreground text-xs">Sessions actives</p>
                         </div>
                     </div>
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">En cours</span>
-                            <span className="text-card-foreground font-medium">{safeMetrics.processes_count}</span>
+                            <span className="text-muted-foreground">Utilisateurs connectés</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.user_activity.length}</span>
                         </div>
+                        {safeMetrics.user_activity.slice(0, 3).map((user, index) => (
+                            <div key={index} className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">{user.username || user.user || 'Unknown'}</span>
+                                <span className="text-card-foreground">{user.terminal || user.tty || '-'}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Tentatives de connexion échouées */}
+                <div className="bg-card border-border rounded-xl border p-6 transition-all hover:shadow-sm">
+                    <div className="mb-4 flex items-center space-x-3">
+                        <div className="rounded-lg bg-red-100 p-2 dark:bg-red-900/20">
+                            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-card-foreground text-sm font-medium">Échecs de connexion</h3>
+                            <p className="text-muted-foreground text-xs">Tentatives récentes</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Connexions</span>
-                            <span className="text-card-foreground font-medium">{safeMetrics.connections_count}</span>
+                            <span className="text-muted-foreground">Échecs récents</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.login_failures.length}</span>
                         </div>
+                        {safeMetrics.login_failures.slice(0, 3).map((failure, index) => (
+                            <div key={index} className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">{failure.username || failure.user || 'Unknown'}</span>
+                                <span className="text-red-600 dark:text-red-400">{failure.ip || failure.source || '-'}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Ports ouverts */}
+                <div className="bg-card border-border rounded-xl border p-6 transition-all hover:shadow-sm">
+                    <div className="mb-4 flex items-center space-x-3">
+                        <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/20">
+                            <Wifi className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-card-foreground text-sm font-medium">Ports ouverts</h3>
+                            <p className="text-muted-foreground text-xs">Services en écoute</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Ports actifs</span>
+                            <span className="text-card-foreground font-medium">{safeMetrics.ports.length}</span>
+                        </div>
+                        {safeMetrics.ports.slice(0, 3).map((port, index) => (
+                            <div key={index} className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">{port.port || port.number || 'Unknown'}</span>
+                                <span className="text-card-foreground">{port.service || port.name || port.protocol || '-'}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

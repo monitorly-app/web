@@ -13,16 +13,18 @@ return new class extends Migration
     {
         Schema::create('metrics', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
             $table->foreignUuid('server_id')->constrained('servers')->onDelete('cascade');
-            $table->string('type'); // cpu, memory, disk, network, etc.
-            $table->json('data'); // Les données de la métrique
-            $table->timestamp('recorded_at');
+            $table->string('category'); // e.g., 'system'
+            $table->string('name'); // e.g., 'cpu', 'ram', 'disk', 'service', etc.
+            $table->json('metadata')->nullable(); // Optional metadata like mountpoint, service name
+            $table->json('value'); // The actual metric data
+            $table->timestamp('timestamp'); // When the metric was recorded
             $table->timestamps();
 
-            // Index pour optimiser les requêtes
-            $table->index(['organization_id', 'server_id', 'type', 'recorded_at']);
-            $table->index(['server_id', 'type', 'recorded_at']);
+            // Indexes for efficient querying based on PROBE.md structure
+            $table->index(['server_id', 'category', 'name', 'timestamp']);
+            $table->index(['server_id', 'timestamp']);
+            $table->index(['category', 'name']);
         });
     }
 

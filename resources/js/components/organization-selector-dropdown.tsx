@@ -10,13 +10,16 @@ interface OrganizationSelectorDropdownProps {
     organizations: Organization[];
     user: {
         id: number;
-        plan?: {
-            name: string;
-            max_organizations?: number;
-        };
     };
     canCreateOrganization?: boolean;
     organizationsCount?: number;
+    organizationLimits?: {
+        canCreate: boolean;
+        currentCount: number;
+        maxAllowed: number;
+        planName: string;
+        allowed: boolean;
+    };
 }
 
 export function OrganizationSelectorDropdown({
@@ -25,31 +28,18 @@ export function OrganizationSelectorDropdown({
     user,
     canCreateOrganization = true,
     organizationsCount = 0,
+    organizationLimits,
 }: OrganizationSelectorDropdownProps) {
     const handleOrganizationSelect = (organizationId: string) => {
         router.visit(`/organizations/${organizationId}`);
     };
 
     const getCreateButtonText = () => {
-        if (!canCreateOrganization) {
-            const userPlan = user.plan?.name || 'Free';
-            const maxOrgs = getMaxOrganizationsForPlan(userPlan);
-            return `Upgrade to create more (${organizationsCount}/${maxOrgs})`;
+        if (!canCreateOrganization && organizationLimits) {
+            const maxOrgs = organizationLimits.maxAllowed === -1 ? '∞' : organizationLimits.maxAllowed;
+            return `Upgrade to create more (${organizationLimits.currentCount}/${maxOrgs})`;
         }
         return 'Create New Organization';
-    };
-
-    const getMaxOrganizationsForPlan = (planName: string): number => {
-        switch (planName) {
-            case 'Free':
-                return 1;
-            case 'Pro':
-                return 3;
-            case 'Business':
-                return -1;
-            default:
-                return 1;
-        }
     };
 
     return (
@@ -122,9 +112,9 @@ export function OrganizationSelectorDropdown({
                     <DropdownMenuItem disabled className="flex items-center gap-2 opacity-50">
                         <PlusCircle className="h-4 w-4" />
                         <div className="flex flex-col">
-                            <span className="text-xs font-medium">Upgrade Plan Required</span>
+                            <span className="text-xs font-medium">Organization Limit Reached</span>
                             <span className="text-muted-foreground text-xs">
-                                {organizationsCount}/{getMaxOrganizationsForPlan(user.plan?.name || 'Free')} organizations used
+                                {organizationLimits?.currentCount || organizationsCount}/{organizationLimits?.maxAllowed === -1 ? '∞' : organizationLimits?.maxAllowed || 3} organizations used
                             </span>
                         </div>
                     </DropdownMenuItem>

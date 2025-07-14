@@ -124,32 +124,72 @@ class HandleInertiaRequests extends Middleware
                 'currentCount' => 0,
                 'maxAllowed' => 0,
                 'planName' => 'None',
+                'allowed' => false,
             ];
         }
 
-        $userPlan = $user->plan;
-        $planName = $userPlan?->name ?? 'Free';
-
-        $maxOrganizations = match ($planName) {
-            'Free' => 1,
-            'Pro' => 3,
-            'Business' => -1,
-            default => 1,
-        };
-
-        // Si c'est la première organisation, toujours autorisé
-        $canCreate = $currentCount === 0;
-
-        // Sinon, vérifier les limites du plan
-        if ($currentCount > 0) {
-            $canCreate = $userPlan && ($maxOrganizations === -1 || $currentCount < $maxOrganizations);
+        // Compter les organisations gratuites de l'utilisateur
+        $freeOrgsCount = $user->ownedOrganizations()
+            ->whereHas('plan', function($q) {
+                $q->where('name', 'Free');
+            })
+            ->count();
+        
+        // Vérifier s'il a une organisation payante
+        $hasProOrg = $user->ownedOrganizations()
+            ->whereHas('plan', function($q) {
+                $q->where('name', '!=', 'Free');
+            })
+            ->exists();
+        
+        // Règles : Max 3 orgs gratuites par user, mais si il a une org Pro+ alors 5 orgs pour Pro, illimité pour Business
+        $maxFreeOrgs = 3;
+        
+        if ($hasProOrg) {
+            // Vérifier s'il a une org Business (illimité)
+            $hasBusinessOrg = $user->ownedOrganizations()
+                ->whereHas('plan', function($q) {
+                    $q->where('name', 'Business');
+                })
+                ->exists();
+                
+            if ($hasBusinessOrg) {
+                // Utilisateur avec org Business = illimité
+                return [
+                    'canCreate' => true,
+                    'currentCount' => $currentCount,
+                    'maxAllowed' => -1,
+                    'planName' => 'Business',
+                    'allowed' => true,
+                ];
+            } else {
+                // Utilisateur avec org Pro = max 5 organisations
+                return [
+                    'canCreate' => $currentCount < 5,
+                    'currentCount' => $currentCount,
+                    'maxAllowed' => 5,
+                    'planName' => 'Pro',
+                    'allowed' => $currentCount < 5,
+                ];
+            }
+        } else if ($freeOrgsCount < $maxFreeOrgs) {
+            // Utilisateur peut encore créer des orgs gratuites
+            return [
+                'canCreate' => true,
+                'currentCount' => $currentCount,
+                'maxAllowed' => $maxFreeOrgs,
+                'planName' => 'Free',
+                'allowed' => true,
+            ];
+        } else {
+            // Limite atteinte
+            return [
+                'canCreate' => false,
+                'currentCount' => $currentCount,
+                'maxAllowed' => $maxFreeOrgs,
+                'planName' => 'Free',
+                'allowed' => false,
+            ];
         }
-
-        return [
-            'canCreate' => $canCreate,
-            'currentCount' => $currentCount,
-            'maxAllowed' => $maxOrganizations,
-            'planName' => $planName,
-        ];
     }
 }

@@ -47,6 +47,11 @@ export function AppAdminSidebar() {
     // Navigation pour les organisations
     const organizationNavItems: NavItem[] = [
         {
+            title: 'Organizations',
+            href: '/admin/organizations',
+            icon: Building,
+        },
+        {
             title: 'Organization Roles',
             href: '/admin/organization-roles',
             icon: Building,

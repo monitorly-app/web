@@ -14,7 +14,7 @@ class UserDashboardController extends Controller
     {
 
         $user = Auth::user();
-        $user->load(['plan']);
+        $user->load(['role']);
 
         return Inertia::render('User/Dashboard', [
             'user' => $user,

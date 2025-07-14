@@ -48,7 +48,6 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role_id' => 2, // Default user role
-            'plan_id' => 1, // Default free plan
             'is_active' => true,
         ]);
 

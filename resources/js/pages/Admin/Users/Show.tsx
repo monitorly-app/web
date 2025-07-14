@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AdminLayout from '@/layouts/admin-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Edit, Mail, Package, ShieldCheck, User } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, ShieldCheck, User } from 'lucide-react';
 
 interface User {
     id: number;
@@ -18,15 +18,6 @@ interface User {
     role: {
         id: number;
         name: string;
-        description: string;
-    };
-    plan: {
-        id: number;
-        name: string;
-        price: number | { yearly: number; monthly: number };
-        frequency: number;
-        max_servers: number;
-        max_users: number;
         description: string;
     };
 }
@@ -112,15 +103,6 @@ export default function ShowUser({ user }: Props) {
                                     </div>
                                     {user.role.description && <p className="text-muted-foreground mt-1 text-xs">{user.role.description}</p>}
                                 </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground text-sm">Plan</p>
-                                    <div className="flex items-center">
-                                        <Package className="text-primary mr-2 h-4 w-4" />
-                                        <p>{user.plan.name}</p>
-                                    </div>
-                                    {user.plan.description && <p className="text-muted-foreground mt-1 text-xs">{user.plan.description}</p>}
-                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -155,32 +137,6 @@ export default function ShowUser({ user }: Props) {
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground text-sm">Member Since</p>
                                     <p className="text-sm">{formatDate(user.created_at)}</p>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground text-sm">Plan Details</p>
-                                    <ul className="space-y-1 text-sm">
-                                        <li className="flex justify-between">
-                                            <span>Price:</span>
-                                            <span className="font-medium">
-                                                {typeof user.plan.price === 'object'
-                                                    ? `${user.plan.price.yearly}€/an (${user.plan.price.monthly}€/mois)`
-                                                    : `${user.plan.price} €`}
-                                            </span>
-                                        </li>
-                                        <li className="flex justify-between">
-                                            <span>Frequency:</span>
-                                            <span className="font-medium">{user.plan.frequency} min</span>
-                                        </li>
-                                        <li className="flex justify-between">
-                                            <span>Max Servers:</span>
-                                            <span className="font-medium">{user.plan.max_servers === -1 ? 'Illimité' : user.plan.max_servers}</span>
-                                        </li>
-                                        <li className="flex justify-between">
-                                            <span>Max Users:</span>
-                                            <span className="font-medium">{user.plan.max_users === -1 ? 'Illimité' : user.plan.max_users}</span>
-                                        </li>
-                                    </ul>
                                 </div>
                             </div>
                         </CardContent>

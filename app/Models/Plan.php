@@ -37,11 +37,11 @@ class Plan extends Model
     ];
 
     /**
-     * Get the users for the plan.
+     * Get the organizations for the plan.
      */
-    public function users(): HasMany
+    public function organizations(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(Organization::class);
     }
 
     /**

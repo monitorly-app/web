@@ -22,10 +22,14 @@ class Server extends Model
         'os',
         'status',
         'last_ping',
+        'last_seen_at',
         'monitoring_token',
         'organization_id',
         'token',
         'monitoring_config',
+        'monitoring_config_updated_at',
+        'system_info',
+        'last_metrics',
     ];
 
     protected $casts = [
@@ -33,6 +37,7 @@ class Server extends Model
         'last_metrics' => 'array',
         'system_info' => 'array',
         'monitoring_config' => 'array',
+        'monitoring_config_updated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -72,55 +77,67 @@ class Server extends Model
         $lastMetrics = $this->last_metrics ?? [];
 
         return [
-            'cpu_usage' => $lastMetrics['system.cpu']['value'] ?? 0,
-            'memory_usage' => $lastMetrics['system.ram']['value'] ?? 0,
-            'disk_usage' => $lastMetrics['system.disk']['value'] ?? 0,
-            'uptime' => $lastMetrics['system.uptime']['value'] ?? 0,
-            'network_in' => $lastMetrics['system.network_in']['value'] ?? 0,
-            'network_out' => $lastMetrics['system.network_out']['value'] ?? 0,
-            'processes_count' => $lastMetrics['system.processes']['value'] ?? 0,
-            'connections_count' => $lastMetrics['system.connections']['value'] ?? 0,
-            'load_average' => [0, 0, 0], // À implémenter plus tard
+            'cpu_usage' => $this->getMetricValue($lastMetrics, 'system.cpu', 'usage_percent', 0),
+            'memory_usage' => $this->getMetricValue($lastMetrics, 'system.ram', 'usage_percent', 0),
+            'disk_usage' => $this->getMetricValue($lastMetrics, 'system.disk', 'usage_percent', 0),
+            'services' => $this->getServicesStatus($lastMetrics),
+            'user_activity' => $this->getUserActivityData($lastMetrics),
+            'login_failures' => $this->getLoginFailuresData($lastMetrics),
+            'ports' => $this->getPortsData($lastMetrics),
         ];
     }
 
     /**
-     * Obtenir les informations système formatées
+     * Obtenir les informations système formatées selon PROBE.md
      */
     public function getFormattedSystemInfo(): array
     {
         $systemInfo = $this->system_info ?? [];
-        $lastMetrics = $this->last_metrics ?? [];
-
-        // Essayer d'extraire des infos depuis les métadonnées si system_info est vide
-        if (empty($systemInfo) && isset($lastMetrics['system.disk']['metadata'])) {
-            $diskMetadata = $lastMetrics['system.disk']['metadata'];
-            $systemInfo['total_disk'] = $diskMetadata['total'] ?? 0;
-        }
 
         return [
-            'os' => $systemInfo['os'] ?? 'Linux (auto-detected)',
-            'kernel' => $systemInfo['kernel'] ?? 'Unknown',
-            'cpu_model' => $systemInfo['cpu_model'] ?? 'Unknown',
-            'cpu_cores' => $systemInfo['cpu_cores'] ?? 1,
-            'total_memory' => $systemInfo['total_memory'] ?? 0,
-            'total_disk' => $systemInfo['total_disk'] ?? 0,
-            'total_memory_formatted' => isset($systemInfo['total_memory']) && $systemInfo['total_memory'] > 0 ?
-                $this->formatBytes($systemInfo['total_memory']) : 'Unknown',
-            'total_disk_formatted' => isset($systemInfo['total_disk']) && $systemInfo['total_disk'] > 0 ?
-                $this->formatBytes($systemInfo['total_disk']) : 'Unknown',
-            'hostname' => $systemInfo['hostname'] ?? $this->name,
+            'hostname' => $systemInfo['hostname'] ?? $this->hostname ?? $this->name ?? 'Unknown',
+            'public_ip' => $systemInfo['public_ip'] ?? $this->ip_address ?? 'Unknown',
+            'os' => $systemInfo['os'] ?? 'Unknown',
+            'os_version' => $systemInfo['os_version'] ?? 'Unknown',
+            'kernel_version' => $systemInfo['kernel_version'] ?? 'Unknown',
+            'cpu' => [
+                'name' => $systemInfo['cpu']['name'] ?? 'Unknown',
+                'cores' => $systemInfo['cpu']['cores'] ?? 1,
+                'frequency_mhz' => $systemInfo['cpu']['frequency_mhz'] ?? 0,
+            ],
+            'ram' => [
+                'total_bytes' => $systemInfo['ram']['total_bytes'] ?? 0,
+                'total_formatted' => isset($systemInfo['ram']['total_bytes']) && $systemInfo['ram']['total_bytes'] > 0 ?
+                    $this->formatBytes($systemInfo['ram']['total_bytes']) : 'Unknown',
+            ],
+            'disks' => $this->getFormattedDisks($systemInfo['disks'] ?? []),
+            'services' => $systemInfo['services'] ?? [],
+            'last_boot_time' => $systemInfo['last_boot_time'] ?? null,
+            'last_boot_formatted' => isset($systemInfo['last_boot_time']) ?
+                date('Y-m-d H:i:s', $systemInfo['last_boot_time']) : 'Unknown',
         ];
     }
 
     /**
-     * Obtenir la dernière métrique d'un type donné
+     * Obtenir la dernière métrique d'un type donné (PROBE.md compatible)
      */
     public function getLastMetric(string $category, string $name)
     {
         return $this->metrics()
             ->where('category', $category)
             ->where('name', $name)
+            ->latest('timestamp')
+            ->first();
+    }
+
+    /**
+     * Get system info metrics (for PROBE.md compatibility)
+     */
+    public function getSystemInfoMetrics()
+    {
+        return $this->metrics()
+            ->where('category', 'system')
+            ->where('name', 'system_info')
             ->latest('timestamp')
             ->first();
     }
@@ -207,6 +224,87 @@ class Server extends Model
     public function getMetricsByCategory(string $category): HasMany
     {
         return $this->metrics()->where('category', $category);
+    }
+
+    /**
+     * Helper method to get metric value from last_metrics
+     */
+    private function getMetricValue(array $lastMetrics, string $key, string $field, $default = null)
+    {
+        if (isset($lastMetrics[$key]['value'][$field])) {
+            return $lastMetrics[$key]['value'][$field];
+        }
+        
+        if (isset($lastMetrics[$key]['value']) && is_numeric($lastMetrics[$key]['value'])) {
+            return $lastMetrics[$key]['value'];
+        }
+        
+        return $default;
+    }
+
+    /**
+     * Get services status from last_metrics
+     */
+    private function getServicesStatus(array $lastMetrics): array
+    {
+        $services = [];
+        
+        foreach ($lastMetrics as $key => $metric) {
+            if (str_starts_with($key, 'system.service') && isset($metric['metadata']['service_name'])) {
+                $services[] = [
+                    'name' => $metric['metadata']['service_name'],
+                    'label' => $metric['metadata']['label'] ?? $metric['metadata']['service_name'],
+                    'status' => $metric['value']['status'] ?? 'unknown',
+                    'running' => $metric['value']['running'] ?? false,
+                ];
+            }
+        }
+        
+        return $services;
+    }
+
+    /**
+     * Get user activity data from last_metrics
+     */
+    private function getUserActivityData(array $lastMetrics): array
+    {
+        return $lastMetrics['system.user_activity']['value'] ?? [];
+    }
+
+    /**
+     * Get login failures data from last_metrics
+     */
+    private function getLoginFailuresData(array $lastMetrics): array
+    {
+        return $lastMetrics['system.login_failures']['value'] ?? [];
+    }
+
+    /**
+     * Get ports data from last_metrics
+     */
+    private function getPortsData(array $lastMetrics): array
+    {
+        return $lastMetrics['system.port']['value'] ?? [];
+    }
+
+    /**
+     * Format disks information for display
+     */
+    private function getFormattedDisks(array $disks): array
+    {
+        $formattedDisks = [];
+        
+        foreach ($disks as $disk) {
+            $formattedDisks[] = [
+                'mountpoint' => $disk['mountpoint'] ?? 'Unknown',
+                'label' => $disk['label'] ?? 'Unknown',
+                'total_bytes' => $disk['total_bytes'] ?? 0,
+                'total_formatted' => isset($disk['total_bytes']) && $disk['total_bytes'] > 0 ?
+                    $this->formatBytes($disk['total_bytes']) : 'Unknown',
+            ];
+        }
+        
+        return $formattedDisks;
     }
 
     /**

@@ -14,10 +14,12 @@ return new class extends Migration
         Schema::create('organization_invitations', function (Blueprint $table) {
             $table->id();
             $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
-            $table->string('email');
             $table->foreignId('organization_role_id')->constrained('organization_roles');
+            $table->string('email');
             $table->uuid('token')->unique();
             $table->enum('status', ['pending', 'accepted', 'declined'])->default('pending');
+            $table->foreignId('invited_by')->constrained('users');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
             // Chaque email ne peut être invité qu'une seule fois par organisation

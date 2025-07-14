@@ -34,16 +34,8 @@ import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-interface UserPlan {
-    id: number;
-    name: string;
-    max_servers: number;
-    frequency: number;
-}
-
 interface Props {
-    organization: Organization;
-    userPlan: UserPlan;
+    organization: Organization & { plan: { id: number; name: string; max_servers: number; frequency: number } };
     currentServerCount: number;
 }
 
@@ -115,7 +107,7 @@ const availableMetrics: MetricConfig[] = [
     },
 ];
 
-export default function ServersCreate({ organization, userPlan, currentServerCount }: Props) {
+export default function ServersCreate({ organization, currentServerCount }: Props) {
     const [currentStep, setCurrentStep] = useState(1);
     const [selectedMetrics, setSelectedMetrics] = useState<string[]>(availableMetrics.filter((m) => m.defaultEnabled).map((m) => m.key));
     const [installScript, setInstallScript] = useState<string>('');
@@ -143,7 +135,7 @@ export default function ServersCreate({ organization, userPlan, currentServerCou
         },
     ];
 
-    const remainingServers = userPlan.max_servers === -1 ? 'Unlimited' : userPlan.max_servers - currentServerCount;
+    const remainingServers = organization.plan.max_servers === -1 ? 'Unlimited' : organization.plan.max_servers - currentServerCount;
 
     const handleMetricToggle = (metricKey: string) => {
         setSelectedMetrics((prev) => {
@@ -283,11 +275,11 @@ export default function ServersCreate({ organization, userPlan, currentServerCou
                         <AlertDescription>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <strong>{userPlan.name} Plan:</strong> Monitoring every {userPlan.frequency} minute
-                                    {userPlan.frequency > 1 ? 's' : ''}
+                                    <strong>{organization.plan.name} Plan:</strong> Monitoring every {organization.plan.frequency} minute
+                                    {organization.plan.frequency > 1 ? 's' : ''}
                                 </div>
                                 <div className="text-sm">
-                                    {userPlan.max_servers === -1 ? (
+                                    {organization.plan.max_servers === -1 ? (
                                         <span className="text-green-600">Unlimited servers</span>
                                     ) : (
                                         <span>

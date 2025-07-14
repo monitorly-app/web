@@ -16,7 +16,7 @@ interface Props {
                 monthly: number;
                 yearly: number;
             };
-            billing_cycle: string;
+            billing_period: 'monthly' | 'yearly';
             max_servers: number;
             max_members_per_organization: number;
         };
@@ -39,14 +39,22 @@ export default function OrganizationBilling({ organization }: Props) {
         if (!plan || !plan.price) return 0;
         // Si c'est déjà un nombre, le retourner (rétrocompatibilité)
         if (typeof plan.price === 'number') return plan.price;
-        // Sinon, utiliser le prix annuel par défaut
-        return plan.price.yearly || 0;
+        // Utiliser la période de facturation de l'organisation
+        const period = plan.billing_period || 'yearly';
+        return period === 'monthly' ? plan.price.monthly : plan.price.yearly;
     };
 
     const formatPlanPrice = (plan: any) => {
         const price = getPlanPrice(plan);
         if (price === 0) return 'Plan gratuit';
-        return `${price}€/an`;
+        const period = plan.billing_period || 'yearly';
+        const periodText = period === 'monthly' ? 'mois' : 'an';
+        return `${price}€/${periodText}`;
+    };
+
+    const getPlanPeriod = (plan: any) => {
+        const period = plan.billing_period || 'yearly';
+        return period === 'monthly' ? 'par mois' : 'par an';
     };
 
     const getStatusBadge = () => {
@@ -107,8 +115,8 @@ export default function OrganizationBilling({ organization }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${organization.name} - Billing`} />
 
-            <div className="p-6">
-                <h1 className="mb-6 text-2xl font-semibold">Facturation</h1>
+            <div className="p-4 md:p-6">
+                <h1 className="mb-6 text-xl md:text-2xl font-semibold">Facturation</h1>
 
                 <div className="space-y-6">
                     {/* Abonnement actuel */}
@@ -120,10 +128,10 @@ export default function OrganizationBilling({ organization }: Props) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>{getStatusBadge()}</div>
-                                <Link href={route('pricing')}>
-                                    <Button variant="outline" size="sm" className="gap-2">
+                                <Link href={route('organizations.change-plan', organization.id)}>
+                                    <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
                                         <TrendingUp className="h-4 w-4" />
                                         Changer de plan
                                     </Button>
@@ -131,28 +139,30 @@ export default function OrganizationBilling({ organization }: Props) {
                             </div>
 
                             {organization.plan && (
-                                <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
-                                    {getPlanIcon(organization.plan.name)}
-                                    <div className="flex-1">
-                                        <p className="text-lg font-medium">{organization.plan.name}</p>
-                                        <p className="text-muted-foreground text-sm">{formatPlanPrice(organization.plan)}</p>
+                                <div className="bg-accent flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg p-4">
+                                    <div className="flex items-center gap-3 flex-1">
+                                        {getPlanIcon(organization.plan.name)}
+                                        <div className="flex-1">
+                                            <p className="text-lg font-medium">{organization.plan.name}</p>
+                                            <p className="text-muted-foreground text-sm">{formatPlanPrice(organization.plan)}</p>
+                                        </div>
                                     </div>
                                     {getPlanPrice(organization.plan) > 0 && (
-                                        <div className="text-right">
+                                        <div className="text-left sm:text-right">
                                             <p className="text-2xl font-bold text-green-600">{getPlanPrice(organization.plan)}€</p>
-                                            <p className="text-muted-foreground text-xs">par an</p>
+                                            <p className="text-muted-foreground text-xs">{getPlanPeriod(organization.plan)}</p>
                                         </div>
                                     )}
                                 </div>
                             )}
 
                             {/* Informations de facturation */}
-                            <div className="grid gap-4 border-t pt-4 md:grid-cols-2">
+                            {/* <div className="grid gap-4 border-t pt-4 md:grid-cols-2">
                                 <div>
                                     <p className="text-muted-foreground text-sm">Plan actuel</p>
                                     <p className="font-medium">{organization.plan?.name || 'Free'}</p>
                                 </div>
-                            </div>
+                            </div> */}
                         </CardContent>
                     </Card>
 
@@ -189,14 +199,14 @@ export default function OrganizationBilling({ organization }: Props) {
                     </Card>
 
                     {/* Actions rapides */}
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Changer de plan</CardTitle>
-                                <CardDescription>Découvrez tous nos plans et leurs fonctionnalités</CardDescription>
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg">Changer de plan</CardTitle>
+                                <CardDescription className="text-sm">Découvrez tous nos plans et leurs fonctionnalités</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Link href={route('pricing')}>
+                                <Link href={route('organizations.change-plan', organization.id)}>
                                     <Button className="w-full gap-2">
                                         <TrendingUp className="h-4 w-4" />
                                         Voir tous les plans
@@ -207,9 +217,9 @@ export default function OrganizationBilling({ organization }: Props) {
                         </Card>
 
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Support</CardTitle>
-                                <CardDescription>Besoin d'aide avec votre facturation ?</CardDescription>
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg">Support</CardTitle>
+                                <CardDescription className="text-sm">Besoin d'aide avec votre facturation ?</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Button variant="outline" className="w-full gap-2">

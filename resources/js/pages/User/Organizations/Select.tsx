@@ -129,7 +129,7 @@ export default function OrganizationsSelect({ organizations, user, organizations
                 )}
 
                 {/* Vue d'ensemble */}
-                <div className="mb-8 grid gap-4 md:grid-cols-4">
+                {/* <div className="mb-8 grid gap-4 md:grid-cols-3">
                     <Card>
                         <CardContent className="p-4">
                             <div className="flex items-center gap-3">
@@ -176,27 +176,11 @@ export default function OrganizationsSelect({ organizations, user, organizations
                             </div>
                         </CardContent>
                     </Card>
+                </div> */}
 
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className={`rounded-lg p-2 ${user.plan?.name === 'Business' ? 'bg-purple-100' : user.plan?.name === 'Pro' ? 'bg-blue-100' : 'bg-gray-100'}`}
-                                >
-                                    <div className={getPlanColor(user.plan?.name || 'Free')}>{getPlanIcon(user.plan?.name || 'Free')}</div>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-sm">Plan Utilisateur</p>
-                                    <p className="text-2xl font-bold">{user.plan?.name || 'Free'}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div className="grid gap-6">
+                <div className="mx-5 grid grid-cols-1 gap-6 md:grid-cols-2">
                     {organizations.length > 0 ? (
-                        <div className="space-y-4">
+                        <>
                             {organizations.map((organization) => (
                                 <Card key={organization.id} className="group overflow-hidden transition-shadow hover:shadow-lg">
                                     <CardHeader className="pb-4">
@@ -312,7 +296,7 @@ export default function OrganizationsSelect({ organizations, user, organizations
                                     </CardContent>
                                 </Card>
                             ))}
-                        </div>
+                        </>
                     ) : (
                         <div className="py-16 text-center">
                             <div className="mx-auto max-w-md">

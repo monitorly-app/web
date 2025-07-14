@@ -13,14 +13,8 @@ interface Role {
     name: string;
 }
 
-interface Plan {
-    id: number;
-    name: string;
-}
-
 interface Props {
     roles: Role[];
-    plans: Plan[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -38,13 +32,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateUser({ roles, plans }: Props) {
+export default function CreateUser({ roles }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         first_name: '',
         last_name: '',
         email: '',
         role_id: '',
-        plan_id: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -86,40 +79,21 @@ export default function CreateUser({ roles, plans }: Props) {
                                 <InputError message={errors.email} />
                             </div>
 
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="role">Role</Label>
-                                    <Select value={data.role_id} onValueChange={(value) => setData('role_id', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {roles.map((role) => (
-                                                <SelectItem key={role.id} value={role.id.toString()}>
-                                                    {role.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.role_id} />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="plan">Plan</Label>
-                                    <Select value={data.plan_id} onValueChange={(value) => setData('plan_id', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a plan" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {plans.map((plan) => (
-                                                <SelectItem key={plan.id} value={plan.id.toString()}>
-                                                    {plan.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.plan_id} />
-                                </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="role">Role</Label>
+                                <Select value={data.role_id} onValueChange={(value) => setData('role_id', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {roles.map((role) => (
+                                            <SelectItem key={role.id} value={role.id.toString()}>
+                                                {role.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.role_id} />
                             </div>
 
                             <div className="flex justify-end">

@@ -28,7 +28,6 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
             'role_id' => 1, // Admin role
-            'plan_id' => 3, // Business plan
             'is_active' => true,
             'email_verified_at' => now(),
         ]);
@@ -41,7 +40,6 @@ class DatabaseSeeder extends Seeder
             'email' => 'user@example.com',
             'password' => Hash::make('password'),
             'role_id' => 2, // User role
-            'plan_id' => 1, // Free plan
             'is_active' => true,
             'email_verified_at' => now(),
         ]);

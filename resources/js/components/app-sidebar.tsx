@@ -182,6 +182,7 @@ export function AppSidebar() {
                             user={auth.user}
                             canCreateOrganization={organizationLimits?.canCreate ?? false}
                             organizationsCount={organizationLimits?.currentCount ?? 0}
+                            organizationLimits={organizationLimits}
                         />
                     </>
                 )}

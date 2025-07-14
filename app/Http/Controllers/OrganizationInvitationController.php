@@ -48,6 +48,7 @@ class OrganizationInvitationController extends Controller
             'organization_role_id' => $validated['organization_role_id'],
             'token' => Str::random(32),
             'status' => 'pending',
+            'invited_by' => Auth::id(),
         ]);
 
         // Envoyer l'email d'invitation

@@ -72,15 +72,11 @@ class OrganizationServersController extends Controller
         // Obtenir les permissions de l'utilisateur
         $permissions = $this->getUserOrganizationPermissions($organization, Auth::user());
 
-        // Plan de l'utilisateur
-        $userPlan = $organization->owner->plan;
-
         return Inertia::render('User/Organizations/Servers/Index', [
-            'organization' => $organization->load('owner'),
+            'organization' => $organization->load(['owner', 'plan']),
             'servers' => $servers->items(), // Seulement les données, pas l'objet de pagination
             'stats' => $stats,
             'permissions' => $permissions,
-            'userPlan' => $userPlan,
         ]);
     }
 
@@ -94,8 +90,7 @@ class OrganizationServersController extends Controller
         $currentServerCount = $organization->servers()->count();
 
         return Inertia::render('User/Organizations/Servers/Create', [
-            'organization' => $organization,
-            'userPlan' => $owner->plan,
+            'organization' => $organization->load('plan'),
             'currentServerCount' => $currentServerCount,
         ]);
     }
@@ -205,12 +200,11 @@ class OrganizationServersController extends Controller
         ]);
 
         // Vérifier les limites du plan
-        $owner = $organization->owner;
         $currentServerCount = $organization->servers()->count();
 
-        if ($owner->plan && $owner->plan->max_servers !== -1 && $currentServerCount >= $owner->plan->max_servers) {
+        if ($organization->plan && $organization->plan->max_servers !== -1 && $currentServerCount >= $organization->plan->max_servers) {
             return back()->withErrors([
-                'general' => "You have reached the maximum number of servers for your plan ({$owner->plan->max_servers})"
+                'general' => "You have reached the maximum number of servers for your plan ({$organization->plan->max_servers})"
             ]);
         }
 

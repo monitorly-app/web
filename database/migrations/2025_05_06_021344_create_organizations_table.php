@@ -32,6 +32,7 @@ return new class extends Migration
             // Champs de facturation  
             $table->foreignId('plan_id')->nullable()->constrained('plans');
             $table->enum('subscription_status', ['active', 'cancelled', 'suspended'])->default('active');
+            $table->enum('billing_period', ['monthly', 'yearly'])->default('monthly');
 
             // Champs API
             $table->string('api_key')->unique();

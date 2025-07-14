@@ -14,7 +14,7 @@ class PlanController extends Controller
      */
     public function index()
     {
-        $plans = Plan::withCount('users')->get();
+        $plans = Plan::withCount('organizations')->get();
 
         return Inertia::render('Admin/Plans/Index', [
             'plans' => $plans,
@@ -103,9 +103,9 @@ class PlanController extends Controller
      */
     public function destroy(Plan $plan)
     {
-        // Prevent deletion of plans with users
-        if ($plan->users()->count() > 0) {
-            return redirect()->route('admin.plans.index')->with('error', 'This plan cannot be deleted because it has users.');
+        // Prevent deletion of plans with organizations
+        if ($plan->organizations()->count() > 0) {
+            return redirect()->route('admin.plans.index')->with('error', 'This plan cannot be deleted because it has organizations.');
         }
 
         $plan->delete();

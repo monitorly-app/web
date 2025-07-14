@@ -1,0 +1,137 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### PHP/Laravel Development
+- **Start development server**: `composer run dev` (includes Laravel serve, queue worker, logs, and Vite)
+- **Start with SSR**: `composer run dev:ssr`
+- **Run tests**: `composer run test` (includes config:clear and Pest tests)
+- **Code linting**: `vendor/bin/pint` (Laravel Pint for PHP formatting)
+- **Database migrations**: `php artisan migrate`
+- **Seed database**: `php artisan db:seed`
+
+### Frontend Development
+- **Start Vite dev server**: `npm run dev`
+- **Build assets**: `npm run build`
+- **Build with SSR**: `npm run build:ssr`
+- **Format code**: `npm run format`
+- **Check formatting**: `npm run format:check`
+- **Lint JavaScript/TypeScript**: `npm run lint`
+- **Type checking**: `npm run types`
+
+### Testing
+- **Run all tests**: `composer run test` or `php artisan test`
+- **Run Pest tests directly**: `vendor/bin/pest`
+- **Feature tests**: Tests in `tests/Feature/`
+- **Unit tests**: Tests in `tests/Unit/`
+
+## Application Architecture
+
+### Core Stack
+- **Backend**: Laravel 12 with Inertia.js
+- **Frontend**: React 19 + TypeScript with TailwindCSS v4
+- **UI Components**: Radix UI primitives with custom design system
+- **Database**: SQLite (development), supports PostgreSQL/MySQL
+- **Testing**: Pest PHP testing framework
+- **Authentication**: Laravel's built-in auth with Sanctum
+- **Build Tool**: Vite with Laravel plugin
+
+### Key Models and Relationships
+- **User**: Has roles (admin/user), owns Organizations, belongs to multiple Organizations
+- **Organization**: Has many Servers, Metrics, Members; belongs to Plan; has API/encryption keys
+- **Server**: Belongs to Organization, has many Metrics; uses UUID tokens for probe authentication
+- **Metric**: Stores monitoring data from probes; belongs to Server
+- **Plan**: Defines subscription tiers (Free/Pro/Business) with limits
+- **OrganizationRole**: Custom roles with granular permissions system
+
+### Permission System
+- **System Roles**: Admin (global) and User (regular users)
+- **Organization Roles**: Owner, Admin, Engineer, Developer, Viewer with 17 granular permissions
+- **Permission Categories**: Servers, Metrics, Members, Settings, Billing
+- **Protected Roles**: Owner and Admin roles are system-protected
+
+### Monitoring System Architecture
+- **Go Probe**: External monitoring agent (see PROBE.md for full specification)
+- **API Endpoints**: `/api/organizations/{org_id}/servers/{server_id}/metrics` for probe data
+- **Real-time Data**: Stored in `last_metrics` JSON field on Server model
+- **Authentication**: Bearer tokens + encryption keys for secure probe communication
+
+### Frontend Architecture
+- **Layout System**: Multiple layouts (app, admin, auth, settings) in `resources/js/layouts/`
+- **Component Library**: Custom UI components in `resources/js/components/ui/`
+- **Page Structure**: Inertia pages in `resources/js/pages/` mirror Laravel routes
+- **State Management**: Inertia props + React hooks (no external state library)
+- **Theming**: Dark/light mode with `use-appearance` hook
+
+### Route Organization
+- **Web Routes**: Main application routes in `routes/web.php`
+- **API Routes**: Probe endpoints in `routes/api.php`
+- **Admin Routes**: Administrative interface with role-based access
+- **Organization Context**: Most routes scoped to organization with middleware
+
+### Key Middleware
+- **OrganizationAccess**: Ensures user has access to organization
+- **OrganizationOwner**: Restricts to organization owners
+- **CheckRole**: Global role-based access control
+
+### Database Design
+- **UUIDs**: Organizations and Servers use UUID primary keys
+- **JSON Fields**: `last_metrics`, `system_info`, `monitoring_config` for flexible data storage
+- **Soft Deletes**: Not used; direct deletion with proper cascading
+- **Pivots**: organization_user for membership, organization_role_permissions for role system
+
+## Configuration & Environment
+
+### Key Configuration Files
+- **Database**: SQLite at `database/database.sqlite`
+- **Environment**: Standard Laravel `.env` file
+- **TypeScript**: `tsconfig.json` for type checking
+- **Vite**: `vite.config.ts` with Laravel integration
+- **Tailwind**: `components.json` for shadcn/ui compatibility
+
+### Important Environment Variables
+- `VITE_APP_NAME`: Application name shown in frontend
+- `APP_URL`: Base URL used for probe installation scripts
+- Database connection settings for production deployments
+
+## Development Patterns
+
+### Frontend Patterns
+- **Page Components**: Export default React component, receive Inertia props
+- **Form Handling**: Use Inertia's `useForm` hook for server interactions
+- **Navigation**: Inertia's `Link` component for SPA-like routing
+- **Data Fetching**: Server-side through Laravel controllers, passed as Inertia props
+
+### Backend Patterns
+- **Controllers**: Organized by feature area (Organization, Server, Admin)
+- **Models**: Rich models with relationships and business logic methods
+- **Validation**: Request classes for complex validation (e.g., `ServerCreateRequest`)
+- **API Responses**: Consistent JSON structure for probe communication
+
+### Security Patterns
+- **CSRF Protection**: Handled automatically by Laravel/Inertia
+- **API Authentication**: Bearer tokens for probe communication
+- **Role-Based Access**: Middleware + model methods for authorization
+- **Data Encryption**: Optional AES-256-CBC encryption for premium probe features
+
+## Special Features
+
+### Probe Integration
+- **Installation Scripts**: Generated per-server at `/install/{token}`
+- **Configuration Management**: Automatic config updates via probe API
+- **Metrics Collection**: Real-time system monitoring with configurable intervals
+- **Error Handling**: Comprehensive error codes and fallback mechanisms
+
+### Multi-tenancy
+- **Organization Isolation**: All resources scoped to organizations
+- **Role Hierarchy**: System admins can access all organizations
+- **API Key Management**: Per-organization API keys with usage tracking
+- **Plan Limitations**: Feature access based on subscription tier
+
+### Admin Interface
+- **User Management**: CRUD operations on users with role assignment
+- **Plan Management**: Subscription tier configuration
+- **Organization Oversight**: View and manage all organizations
+- **Role System**: Dynamic role/permission management for organizations

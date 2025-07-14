@@ -62,15 +62,16 @@ interface ServerStats {
     warning_servers: number;
 }
 
-interface Organization {
-    id: string;
-    name: string;
-}
-
-interface UserPlan {
+interface OrganizationPlan {
     id: number;
     name: string;
     max_servers: number;
+}
+
+interface Organization {
+    id: string;
+    name: string;
+    plan: OrganizationPlan;
 }
 
 interface Permissions {
@@ -84,10 +85,9 @@ interface Props {
     servers: ServerData[];
     stats: ServerStats;
     permissions: Permissions;
-    userPlan: UserPlan;
 }
 
-export default function ServersIndex({ organization, servers, stats, permissions, userPlan }: Props) {
+export default function ServersIndex({ organization, servers, stats, permissions }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -213,7 +213,7 @@ export default function ServersIndex({ organization, servers, stats, permissions
         return 'text-green-600';
     };
 
-    const canCreateServer = permissions.canManageServers && (userPlan.max_servers === -1 || stats.total_servers < userPlan.max_servers);
+    const canCreateServer = permissions.canManageServers && (organization.plan.max_servers === -1 || stats.total_servers < organization.plan.max_servers);
 
     // Génération des numéros de page pour la pagination
     const getPageNumbers = () => {
@@ -277,47 +277,17 @@ export default function ServersIndex({ organization, servers, stats, permissions
                                 Add Server
                             </Button>
                             <p className="text-muted-foreground mt-1 text-xs">
-                                Server limit reached ({stats.total_servers}/{userPlan.max_servers})
+                                Server limit reached ({stats.total_servers}/{organization.plan.max_servers})
                             </p>
                         </div>
                     ) : null}
                 </div>
 
-                {/* Plan limits info */}
-                {/* {userPlan.max_servers !== -1 && (
-                    <div className="mb-6">
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium">Server Usage</p>
-                                        <p className="text-muted-foreground text-xs">
-                                            {userPlan.name} plan allows up to {userPlan.max_servers} servers
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-2xl font-bold">
-                                            {stats.total_servers} / {userPlan.max_servers}
-                                        </p>
-                                        <div className="bg-muted mt-2 h-2 w-32 rounded-full">
-                                            <div
-                                                className="bg-primary h-full rounded-full transition-all"
-                                                style={{
-                                                    width: `${Math.min((stats.total_servers / userPlan.max_servers) * 100, 100)}%`,
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )} */}
 
                 {/* Stats Cards */}
                 <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
                     {/* Carte Plan Usage */}
-                    {userPlan.max_servers !== -1 ? (
+                    {organization.plan.max_servers !== -1 ? (
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-sm font-medium">Plan Usage</CardTitle>
@@ -325,17 +295,17 @@ export default function ServersIndex({ organization, servers, stats, permissions
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">
-                                    {stats.total_servers}/{userPlan.max_servers}
+                                    {stats.total_servers}/{organization.plan.max_servers}
                                 </div>
                                 <div className="bg-muted mt-2 h-2 w-full rounded-full">
                                     <div
                                         className="bg-primary h-full rounded-full transition-all"
                                         style={{
-                                            width: `${Math.min((stats.total_servers / userPlan.max_servers) * 100, 100)}%`,
+                                            width: `${Math.min((stats.total_servers / organization.plan.max_servers) * 100, 100)}%`,
                                         }}
                                     />
                                 </div>
-                                <p className="text-muted-foreground mt-1 text-xs">{userPlan.name} plan</p>
+                                <p className="text-muted-foreground mt-1 text-xs">{organization.plan.name} plan</p>
                             </CardContent>
                         </Card>
                     ) : (
@@ -354,23 +324,23 @@ export default function ServersIndex({ organization, servers, stats, permissions
                     {/* Carte Total Servers (si plan illimité) ou simplement Online */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">{userPlan.max_servers === -1 ? 'Online Servers' : 'Total Servers'}</CardTitle>
-                            {userPlan.max_servers === -1 ? (
+                            <CardTitle className="text-sm font-medium">{organization.plan.max_servers === -1 ? 'Online Servers' : 'Total Servers'}</CardTitle>
+                            {organization.plan.max_servers === -1 ? (
                                 <Wifi className="h-4 w-4 text-green-600" />
                             ) : (
                                 <Server className="text-muted-foreground h-4 w-4" />
                             )}
                         </CardHeader>
                         <CardContent>
-                            <div className={`text-2xl font-bold ${userPlan.max_servers === -1 ? 'text-green-600' : ''}`}>
-                                {userPlan.max_servers === -1 ? stats.online_servers : stats.total_servers}
+                            <div className={`text-2xl font-bold ${organization.plan.max_servers === -1 ? 'text-green-600' : ''}`}>
+                                {organization.plan.max_servers === -1 ? stats.online_servers : stats.total_servers}
                             </div>
-                            <p className="text-muted-foreground mt-1 text-xs">{userPlan.max_servers === -1 ? 'Currently active' : 'All servers'}</p>
+                            <p className="text-muted-foreground mt-1 text-xs">{organization.plan.max_servers === -1 ? 'Currently active' : 'All servers'}</p>
                         </CardContent>
                     </Card>
 
                     {/* Carte Online */}
-                    {userPlan.max_servers !== -1 && (
+                    {organization.plan.max_servers !== -1 && (
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-sm font-medium">Online</CardTitle>
@@ -651,7 +621,7 @@ export default function ServersIndex({ organization, servers, stats, permissions
                                 </Button>
                             ) : (
                                 permissions.canManageServers && (
-                                    <p className="text-muted-foreground text-sm">Server limit reached for your {userPlan.name} plan</p>
+                                    <p className="text-muted-foreground text-sm">Server limit reached for your {organization.plan.name} plan</p>
                                 )
                             )}
                         </CardContent>

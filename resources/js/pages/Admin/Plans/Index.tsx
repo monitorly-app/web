@@ -23,7 +23,7 @@ interface Plan {
     max_servers: number;
     max_users: number;
     description: string | null;
-    users_count: number;
+    organizations_count: number;
 }
 
 interface Props {
@@ -137,7 +137,7 @@ export default function PlansIndex({ plans }: Props) {
                                                     <span>{plan.max_users === -1 ? 'Illimité' : plan.max_users}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">{plan.users_count}</td>
+                                            <td className="px-4 py-3">{plan.organizations_count}</td>
                                             <td className="px-4 py-3 text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -153,7 +153,7 @@ export default function PlansIndex({ plans }: Props) {
                                                                 Edit
                                                             </Link>
                                                         </DropdownMenuItem>
-                                                        {plan.users_count === 0 && (
+                                                        {plan.organizations_count === 0 && (
                                                             <DropdownMenuItem onClick={() => setPlanToDelete(plan)}>
                                                                 <Trash className="mr-2 h-4 w-4" />
                                                                 Delete

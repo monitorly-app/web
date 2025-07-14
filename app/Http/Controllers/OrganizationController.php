@@ -47,14 +47,16 @@ class OrganizationController extends Controller
         }
 
         // Calculer les limites d'organisations
-        $userPlan = $user->plan;
         $currentCount = $organizations->count();
 
+        // Nouvelle logique basée sur les organisations
+        $canCreateResult = $this->canUserCreateOrganization($user, $currentCount);
+
         $organizationLimits = [
-            'canCreate' => $this->canUserCreateOrganization($user, $userPlan, $currentCount)['allowed'],
+            'canCreate' => $canCreateResult['allowed'],
             'currentCount' => $currentCount,
-            'maxAllowed' => $this->getMaxOrganizationsForUserPlan($userPlan),
-            'planName' => $userPlan?->name ?? 'Free',
+            'maxAllowed' => $canCreateResult['maxAllowed'],
+            'planName' => $canCreateResult['planName'],
         ];
 
         return Inertia::render('User/Organizations/Select', [
@@ -62,10 +64,6 @@ class OrganizationController extends Controller
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'plan' => $userPlan ? [
-                    'name' => $userPlan->name,
-                    'max_organizations' => $userPlan->max_organizations ?? $this->getMaxOrganizationsForUserPlan($userPlan),
-                ] : null,
             ],
             'organizationsCount' => $currentCount,
             'organizationLimits' => $organizationLimits,
@@ -78,13 +76,12 @@ class OrganizationController extends Controller
     public function create(Request $request)
     {
         $user = $request->user();
-        $userPlan = $user->plan;
 
         // Compter les organisations existantes
         $currentOrganizationsCount = $user->ownedOrganizations()->count();
 
         // Logique de limitation intelligente
-        $canCreateOrganization = $this->canUserCreateOrganization($user, $userPlan, $currentOrganizationsCount);
+        $canCreateOrganization = $this->canUserCreateOrganization($user, $currentOrganizationsCount);
 
         if (!$canCreateOrganization['allowed']) {
             return redirect()->route('organizations.select')
@@ -93,60 +90,68 @@ class OrganizationController extends Controller
 
         $isFirstOrganization = $currentOrganizationsCount === 0;
 
-        return Inertia::render('User/Organizations/Create', [
-            'userPlan' => $userPlan,
+        // Récupérer tous les plans actifs
+        $plans = \App\Models\Plan::where('is_active', true)
+            ->orderBy('price->monthly')
+            ->get();
+
+        return Inertia::render('User/Organizations/Create/Index', [
+            'plans' => $plans,
             'isFirstOrganization' => $isFirstOrganization,
             'currentOrganizationsCount' => $currentOrganizationsCount,
-            'organizationLimits' => $this->getOrganizationLimits($userPlan),
         ]);
     }
 
     /**
      * Vérifier si l'utilisateur peut créer une nouvelle organisation
      */
-    private function canUserCreateOrganization($user, $userPlan, $currentCount): array
+    private function canUserCreateOrganization($user, $currentCount): array
     {
-        // Vérifier les limites du plan utilisateur
-        if (!$userPlan) {
-            // Utilisateur sans plan = plan Free par défaut
-            $userPlan = \App\Models\Plan::where('name', 'Free')->first();
-        }
+        // Compter les organisations gratuites de l'utilisateur
+        $freeOrgsCount = $user->ownedOrganizations()
+            ->whereHas('plan', function ($q) {
+                $q->where('name', 'Free');
+            })
+            ->count();
 
-        $maxOrganizations = $this->getMaxOrganizationsForUserPlan($userPlan);
+        // Vérifier s'il a une organisation payante
+        $hasProOrg = $user->ownedOrganizations()
+            ->whereHas('plan', function ($q) {
+                $q->where('name', '!=', 'Free');
+            })
+            ->exists();
 
-        if ($maxOrganizations !== -1 && $currentCount >= $maxOrganizations) {
+        // Règles : Max 3 orgs gratuites par user, mais si il a une org Pro+ alors illimité
+        $maxFreeOrgs = 3;
+
+        if ($hasProOrg) {
+            // Utilisateur avec org Pro+ = illimité
+            return [
+                'allowed' => true,
+                'message' => '',
+                'maxAllowed' => -1,
+                'planName' => 'Pro+'
+            ];
+        } else if ($freeOrgsCount < $maxFreeOrgs) {
+            // Utilisateur peut encore créer des orgs gratuites
+            return [
+                'allowed' => true,
+                'message' => '',
+                'maxAllowed' => $maxFreeOrgs,
+                'planName' => 'Free'
+            ];
+        } else {
+            // Limite atteinte
             return [
                 'allowed' => false,
-                'message' => "Votre plan {$userPlan->name} vous limite à {$maxOrganizations} organisation(s). Mettez à niveau votre plan pour créer plus d'organisations."
+                'message' => "Vous avez atteint la limite de {$maxFreeOrgs} organisations gratuites. Mettez à niveau une organisation vers un plan Pro pour créer plus d'organisations.",
+                'maxAllowed' => $maxFreeOrgs,
+                'planName' => 'Free'
             ];
         }
-
-        return ['allowed' => true, 'message' => ''];
     }
 
-    /**
-     * Obtenir le nombre max d'organisations selon le plan utilisateur
-     */
-    private function getMaxOrganizationsForUserPlan($plan): int
-    {
-        return match ($plan->name) {
-            'Free' => 1,      // Une seule organisation en gratuit
-            'Pro' => 3,       // 3 organisations max en Pro
-            'Business' => -1, // Illimité en Business
-            default => 1,
-        };
-    }
 
-    /**
-     * Obtenir les limites par défaut pour une nouvelle organisation
-     */
-    private function getOrganizationLimits($userPlan): array
-    {
-        return [
-            'default_plan' => 'Free', // Nouvelle orga commence en gratuit
-            'requires_payment' => false,
-        ];
-    }
 
     /**
      * Créer une nouvelle organisation
@@ -154,11 +159,10 @@ class OrganizationController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        $userPlan = $user->plan;
 
         // Vérifier à nouveau les limites
         $currentOrganizationsCount = $user->ownedOrganizations()->count();
-        $canCreate = $this->canUserCreateOrganization($user, $userPlan, $currentOrganizationsCount);
+        $canCreate = $this->canUserCreateOrganization($user, $currentOrganizationsCount);
 
         if (!$canCreate['allowed']) {
             return back()->with('error', $canCreate['message']);
@@ -167,29 +171,48 @@ class OrganizationController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
-            'logo' => 'nullable|image|max:2048',
+            'plan_id' => 'required|exists:plans,id',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'organization_type' => 'required|in:company,individual',
+            'billing_period' => 'required|in:monthly,yearly',
+            'billing_address' => 'nullable|array',
+            'billing_address.street' => 'nullable|string|max:255',
+            'billing_address.street_line_2' => 'nullable|string|max:255',
+            'billing_address.city' => 'nullable|string|max:100',
+            'billing_address.state' => 'nullable|string|max:100',
+            'billing_address.postal_code' => 'nullable|string|max:20',
+            'billing_address.country' => 'nullable|string|max:10',
+            'billing_address.formatted' => 'nullable|string|max:500',
+            'tax_number' => 'nullable|string|max:50',
         ]);
 
+        $plan = \App\Models\Plan::findOrFail($validated['plan_id']);
+
+        // Gérer l'upload du logo
         $logoPath = null;
         if ($request->hasFile('logo')) {
             $logoPath = $request->file('logo')->store('organizations/logos', 'public');
         }
 
-        // Déterminer le plan de l'organisation
-        $organizationPlan = $this->determineOrganizationPlan($user, $currentOrganizationsCount);
-
-        // Créer l'organisation avec son plan
-        $organization = Organization::create([
+        // Créer l'organisation avec le plan sélectionné
+        $organization = \App\Models\Organization::create([
+            'id' => \Illuminate\Support\Str::uuid(),
             'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
+            'description' => $validated['description'],
             'logo' => $logoPath,
             'owner_id' => $user->id,
-            'plan_id' => $organizationPlan['plan_id'],
-            'subscription_status' => $organizationPlan['status'],
+            'plan_id' => $plan->id,
+            'api_key' => \Illuminate\Support\Str::random(32),
+            'encryption_key' => \Illuminate\Support\Str::random(32),
+            'organization_type' => $validated['organization_type'],
+            'billing_period' => $validated['billing_period'],
+            'billing_address' => $validated['billing_address'],
+            'tax_number' => $validated['tax_number'],
         ]);
 
-        return redirect()->route('organizations.dashboard', $organization->id)
-            ->with('success', 'Organisation créée avec succès !');
+        // Rediriger vers ajout de serveur
+        return redirect()->route('organizations.servers.create', $organization->id)
+            ->with('success', "Organization '{$organization->name}' created successfully! Now let's add your first server.");
     }
 
     /**
@@ -241,7 +264,7 @@ class OrganizationController extends Controller
                 'id' => $organization->plan->id,
                 'name' => $organization->plan->name,
                 'price' => $organization->plan->price,
-                'billing_cycle' => 'an',
+                'billing_period' => $organization->billing_period ?? 'yearly',
                 'max_servers' => $organization->plan->max_servers,
                 'max_members_per_organization' => $organization->plan->max_users,
             ] : null,
@@ -254,5 +277,110 @@ class OrganizationController extends Controller
         return Inertia::render('User/Organizations/Billing', [
             'organization' => $organizationData,
         ]);
+    }
+
+    /**
+     * Afficher la page de changement de plan d'une organisation
+     */
+    public function changePlan(Request $request, Organization $organization)
+    {
+        // Vérifier que l'utilisateur a accès à cette organisation
+        if (!$organization->hasMember($request->user())) {
+            abort(403, 'Accès non autorisé à cette organisation.');
+        }
+
+        // Charger les relations nécessaires
+        $organization->load(['plan', 'servers', 'members']);
+
+        // Récupérer tous les plans actifs
+        $plans = \App\Models\Plan::where('is_active', true)
+            ->orderBy('price->monthly')
+            ->get();
+
+        // Calculer l'utilisation actuelle
+        $currentUsage = [
+            'servers' => $organization->servers()->count(),
+            'members' => $organization->members()->count(),
+            // 'metrics' => $organization->servers()->sum('metrics_count') ?? 0, // Assuming you have this field
+        ];
+
+        // Enrichir l'organisation avec les données nécessaires
+        $organizationData = [
+            'id' => $organization->id,
+            'name' => $organization->name,
+            'logo' => $organization->logo,
+            'description' => $organization->description,
+            'owner_id' => $organization->owner_id,
+            'plan' => $organization->plan ? [
+                'id' => $organization->plan->id,
+                'name' => $organization->plan->name,
+                'description' => $organization->plan->description,
+                'price' => $organization->plan->price,
+                'billing_period' => $organization->billing_period ?? 'yearly',
+                'max_servers' => $organization->plan->max_servers,
+                'max_organizations' => $organization->plan->max_organizations,
+                'max_metrics' => $organization->plan->max_metrics,
+                'frequency' => $organization->plan->frequency,
+                'is_active' => $organization->plan->is_active,
+            ] : null,
+            'servers_count' => $organization->servers()->count(),
+            'members_count' => $organization->members()->count(),
+        ];
+
+        return Inertia::render('User/Organizations/ChangePlan', [
+            'organization' => $organizationData,
+            'plans' => $plans,
+            'currentUsage' => $currentUsage,
+        ]);
+    }
+
+    /**
+     * Mettre à jour le plan d'une organisation
+     */
+    public function updatePlan(Request $request, Organization $organization)
+    {
+        // Vérifier que l'utilisateur a accès à cette organisation
+        if (!$organization->hasMember($request->user())) {
+            abort(403, 'Accès non autorisé à cette organisation.');
+        }
+
+        $validated = $request->validate([
+            'plan_id' => 'required|exists:plans,id',
+            'billing_period' => 'required|in:monthly,yearly',
+        ]);
+
+        $newPlan = \App\Models\Plan::findOrFail($validated['plan_id']);
+
+        // Vérifier les contraintes d'utilisation pour les downgrades
+        $currentUsage = [
+            'servers' => $organization->servers()->count(),
+            'members' => $organization->members()->count(),
+            // 'metrics' => $organization->servers()->sum('metrics_count') ?? 0,
+        ];
+
+        $constraints = [];
+
+        if ($newPlan->max_servers !== -1 && $currentUsage['servers'] > $newPlan->max_servers) {
+            $constraints[] = "You have {$currentUsage['servers']} servers but this plan limits to {$newPlan->max_servers}";
+        }
+
+        // if ($newPlan->max_metrics !== -1 && $currentUsage['metrics'] > $newPlan->max_metrics) {
+        //     $constraints[] = "You have {$currentUsage['metrics']} metrics but this plan limits to {$newPlan->max_metrics}";
+        // }
+
+        if (!empty($constraints)) {
+            return back()->withErrors([
+                'plan_change' => 'Cannot change to this plan due to usage constraints: ' . implode(', ', $constraints)
+            ]);
+        }
+
+        // Mettre à jour le plan et la période de facturation
+        $organization->update([
+            'plan_id' => $newPlan->id,
+            'billing_period' => $validated['billing_period'],
+        ]);
+
+        return redirect()->route('organizations.billing', $organization->id)
+            ->with('success', "Plan successfully changed to {$newPlan->name}!");
     }
 }

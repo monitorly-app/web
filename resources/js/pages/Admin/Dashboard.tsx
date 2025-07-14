@@ -21,9 +21,6 @@ interface User {
     role: {
         name: string;
     };
-    plan: {
-        name: string;
-    };
 }
 
 interface Role {
@@ -35,7 +32,7 @@ interface Role {
 interface Plan {
     id: number;
     name: string;
-    users_count: number;
+    organizations_count: number;
 }
 
 interface OrganizationRole {
@@ -50,7 +47,7 @@ interface Props {
     stats: Stats;
     latestUsers: User[];
     usersByRole: Role[];
-    usersByPlan: Plan[];
+    organizationsByPlan: Plan[];
     organizationRoles: OrganizationRole[];
 }
 
@@ -61,7 +58,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function AdminDashboard({ stats, latestUsers, usersByRole, usersByPlan, organizationRoles }: Props) {
+export default function AdminDashboard({ stats, latestUsers, usersByRole, organizationsByPlan, organizationRoles }: Props) {
+    console.log(organizationsByPlan);
+
     return (
         <AdminLayout breadcrumbs={breadcrumbs}>
             <Head title="Admin Dashboard" />
@@ -146,7 +145,6 @@ export default function AdminDashboard({ stats, latestUsers, usersByRole, usersB
                                         </div>
                                         <div className="text-right">
                                             <div className="text-xs font-medium">{user.role.name}</div>
-                                            <div className="text-muted-foreground text-xs">{user.plan.name}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -227,18 +225,18 @@ export default function AdminDashboard({ stats, latestUsers, usersByRole, usersB
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Users by Plan</CardTitle>
-                            <CardDescription>Distribution of users across plans</CardDescription>
+                            <CardTitle>Organizations by Plan</CardTitle>
+                            <CardDescription>Distribution of organizations across plans</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {usersByPlan.map((plan) => (
+                                {organizationsByPlan.map((plan) => (
                                     <div key={plan.id} className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <Package className="text-primary mr-2 h-4 w-4" />
                                             <span>{plan.name}</span>
                                         </div>
-                                        <span className="font-medium">{plan.users_count} users</span>
+                                        <span className="font-medium">{plan.organizations_count} organizations</span>
                                     </div>
                                 ))}
                             </div>

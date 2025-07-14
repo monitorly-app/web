@@ -13,16 +13,20 @@ return new class extends Migration
     {
         Schema::create('servers', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
+            $table->string('token')->unique();
             $table->string('name');
             $table->string('hostname')->nullable();
             $table->string('ip_address')->nullable();
             $table->text('description')->nullable();
             $table->string('os')->nullable();
             $table->string('status')->default('offline');
+            $table->json('system_info')->nullable();
+            $table->json('last_metrics')->nullable();
             $table->timestamp('last_ping')->nullable();
-            $table->string('token')->unique();
+            $table->timestamp('last_seen_at')->nullable();
             $table->json('monitoring_config')->nullable();
-            $table->foreignUuid('organization_id')->constrained('organizations')->onDelete('cascade');
+            $table->timestamp('monitoring_config_updated_at')->nullable();
             $table->timestamps();
         });
     }

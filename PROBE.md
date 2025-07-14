@@ -100,11 +100,11 @@ sender:
 
 # API configuration (required if sender.target is "api")
 api:
-  url: "https://api.monitorly.io"
-  organization_id: "550e8400-e29b-41d4-a716-446655440000"
-  server_id: "550e8400-e29b-41d4-a716-446655440001"
+  url: "https://api.monitorly.app"
+  organization_id: "your_organization_id"
+  server_id: "your_server_id"
   application_token: "your_application_token_here"
-  encryption_key: ""  # Optional: 32-byte encryption key for premium
+  encryption_key: "your_encryption_key" 
 
 # Log file configuration (required if sender.target is "log_file")
 log_file:

@@ -23,7 +23,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
-        'plan_id',
+        // 'plan_id',
         'is_active',
     ];
 
@@ -59,13 +59,6 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
-    /**
-     * Get the plan associated with the user.
-     */
-    public function plan(): BelongsTo
-    {
-        return $this->belongsTo(Plan::class);
-    }
 
     /**
      * Check if the user is an admin.
