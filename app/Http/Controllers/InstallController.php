@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Server;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class InstallController extends Controller
@@ -60,7 +59,7 @@ class InstallController extends Controller
   private function generateServerScript($organization, $serverName, $selectedMetrics, $serverToken = null, $serverId = null): Response
   {
     $baseUrl = config('app.url');
-    $apiUrl = "{$baseUrl}/api/{$organization->id}/servers/{$serverToken}/metrics";
+    $apiUrl = "{$baseUrl}/api/{$organization->id}/servers/{$serverId}/metrics";
     $metricsConfig = $this->generateMetricsConfig($selectedMetrics);
 
     $script = <<<BASH

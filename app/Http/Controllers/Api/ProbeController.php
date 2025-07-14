@@ -167,7 +167,7 @@ class ProbeController extends Controller
             ]);
 
             // 5. Find server
-            $server = $organization->servers()->where('token', $serverId)->first();
+            $server = $organization->servers()->where('id', $serverId)->first();
             if (!$server) {
                 Log::error('Server not found', ['server_id' => $serverId, 'organization_id' => $organizationId]);
                 return $this->errorResponse('NOT_FOUND', 'Server not found', null, 404);
@@ -230,7 +230,7 @@ class ProbeController extends Controller
             }
 
             // 2. Find server
-            $server = $organization->servers()->where('token', $serverId)->first();
+            $server = $organization->servers()->where('id', $serverId)->first();
             if (!$server) {
                 return $this->errorResponse('NOT_FOUND', 'Server not found', null, 404);
             }
@@ -284,7 +284,7 @@ class ProbeController extends Controller
             }
 
             // 2. Find server
-            $server = $organization->servers()->where('token', $serverId)->first();
+            $server = $organization->servers()->where('id', $serverId)->first();
             if (!$server) {
                 return $this->errorResponse('NOT_FOUND', 'Server not found', null, 404);
             }
