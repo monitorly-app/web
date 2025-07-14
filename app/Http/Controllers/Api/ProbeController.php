@@ -21,11 +21,20 @@ class ProbeController extends Controller
     public function storeSystemInfo(Request $request, string $organizationId, string $serverId): JsonResponse
     {
         try {
+            Log::info('storeSystemInfo called', [
+                'organization_id' => $organizationId,
+                'server_id' => $serverId,
+                'request_data' => $request->all()
+            ]);
+            
             // 1. Authenticate probe first
             $organization = $this->authenticateProbe($request, $organizationId);
             if (!$organization) {
+                Log::warning('Authentication failed', ['organization_id' => $organizationId]);
                 return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
             }
+            
+            Log::info('Authentication successful', ['organization_id' => $organizationId]);
 
             // 2. Handle encryption if present BEFORE validation
             if ($request->input('encrypted', false)) {
