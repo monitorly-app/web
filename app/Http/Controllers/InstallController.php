@@ -17,7 +17,7 @@ class InstallController extends Controller
     $server = Server::where('token', $serverToken)->first();
 
     if ($server) {
-      return $this->generateServerScript($server->organization, $server->name, $this->getAllMetrics(), $server->token);
+      return $this->generateServerScript($server->organization, $server->name, $this->getAllMetrics(), $server->token, $server->id);
     }
 
     // Nouveau serveur - récupérer depuis la session
@@ -31,7 +31,19 @@ class InstallController extends Controller
     $serverName = $pendingServer['name'];
     $selectedMetrics = $pendingServer['metrics'];
 
-    return $this->generateServerScript($organization, $serverName, $selectedMetrics, $serverToken);
+    // Pour les nouveaux serveurs, nous devons créer l'enregistrement pour obtenir l'UUID
+    $server = Server::create([
+      'name' => $serverName,
+      'token' => $serverToken,
+      'organization_id' => $organization->id,
+      'status' => 'pending',
+      'monitoring_config' => json_encode($selectedMetrics)
+    ]);
+    
+    // Nettoyer la session
+    session()->forget('pending_server');
+    
+    return $this->generateServerScript($organization, $serverName, $selectedMetrics, $serverToken, $server->id);
   }
 
   /**
@@ -45,7 +57,7 @@ class InstallController extends Controller
   /**
    * Générer le script d'installation unifié
    */
-  private function generateServerScript($organization, $serverName, $selectedMetrics, $serverToken = null): Response
+  private function generateServerScript($organization, $serverName, $selectedMetrics, $serverToken = null, $serverId = null): Response
   {
     $baseUrl = config('app.url');
     $apiUrl = "{$baseUrl}/api/{$organization->id}/servers/{$serverToken}/metrics";
@@ -85,7 +97,7 @@ sender:
 api:
   url: "{$apiUrl}"
   organization_id: "{$organization->id}"
-  server_id: "{$serverToken}"
+  server_id: "{$serverId}"
   application_token: "{$organization->api_key}"
   encryption_key: "{$organization->encryption_key}"
 
