@@ -48,7 +48,7 @@ class InstallController extends Controller
   private function generateServerScript($organization, $serverName, $selectedMetrics, $serverToken = null): Response
   {
     $baseUrl = config('app.url');
-    $apiUrl = "{$baseUrl}/api/organizations";
+    $apiUrl = "{$baseUrl}/api/organizations/{$organization->id}/servers/{$serverToken}/metrics";
     $metricsConfig = $this->generateMetricsConfig($selectedMetrics);
 
     $script = <<<BASH
