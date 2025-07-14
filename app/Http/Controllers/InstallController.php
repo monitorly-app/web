@@ -48,7 +48,7 @@ class InstallController extends Controller
   private function generateServerScript($organization, $serverName, $selectedMetrics, $serverToken = null): Response
   {
     $baseUrl = config('app.url');
-    $apiUrl = "{$baseUrl}/api/organizations/{$organization->id}/servers/{$serverToken}/metrics";
+    $apiUrl = "{$baseUrl}/api/{$organization->id}/servers/{$serverToken}/metrics";
     $metricsConfig = $this->generateMetricsConfig($selectedMetrics);
 
     $script = <<<BASH
@@ -96,7 +96,7 @@ EOF
 # 3. Démarrer le service
 echo "🔄 Démarrage du service..."
 sudo systemctl enable monitorly-probe
-sudo systemctl start monitorly-probe
+sudo systemctl restart monitorly-probe
 
 # 4. Vérifier le statut
 sleep 3
