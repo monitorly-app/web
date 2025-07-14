@@ -50,10 +50,10 @@ class OrganizationServersController extends Controller
                 $isOnline = $lastMetric->created_at->diffInMinutes(now()) < 5;
                 $server->status = $isOnline ? 'online' : 'offline';
 
-                // Récupérer les dernières métriques par type
-                $server->cpu_usage = $server->metrics()->where('type', 'cpu')->latest()->value('value') ?? 0;
-                $server->ram_usage = $server->metrics()->where('type', 'ram')->latest()->value('value') ?? 0;
-                $server->disk_usage = $server->metrics()->where('type', 'disk')->latest()->value('value') ?? 0;
+                // Récupérer les dernières métriques par category et name
+                $server->cpu_usage = $server->metrics()->where('category', 'system')->where('name', 'cpu')->latest()->value('value') ?? 0;
+                $server->ram_usage = $server->metrics()->where('category', 'system')->where('name', 'ram')->latest()->value('value') ?? 0;
+                $server->disk_usage = $server->metrics()->where('category', 'system')->where('name', 'disk')->latest()->value('value') ?? 0;
             }
 
             $server->last_ping_at = $lastMetric?->created_at;
@@ -264,9 +264,9 @@ class OrganizationServersController extends Controller
             $isOnline = $lastMetric->created_at->diffInMinutes(now()) < 5;
             $server->status = $isOnline ? 'online' : 'offline';
 
-            $server->cpu_usage = $server->metrics()->where('type', 'cpu')->latest()->value('value') ?? 0;
-            $server->ram_usage = $server->metrics()->where('type', 'ram')->latest()->value('value') ?? 0;
-            $server->disk_usage = $server->metrics()->where('type', 'disk')->latest()->value('value') ?? 0;
+            $server->cpu_usage = $server->metrics()->where('category', 'system')->where('name', 'cpu')->latest()->value('value') ?? 0;
+            $server->ram_usage = $server->metrics()->where('category', 'system')->where('name', 'ram')->latest()->value('value') ?? 0;
+            $server->disk_usage = $server->metrics()->where('category', 'system')->where('name', 'disk')->latest()->value('value') ?? 0;
         }
 
         $server->last_ping_at = $lastMetric?->created_at;

@@ -10,7 +10,7 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 // New PROBE.md compliant endpoints
-Route::prefix('api/{organization_id}/servers/{server_id}')->group(function () {
+Route::prefix('{organization_id}/servers/{server_id}')->middleware('gzip')->group(function () {
     // System information endpoint (probe startup)
     Route::post('/info', [ProbeController::class, 'storeSystemInfo'])->name('probe.system-info');
     

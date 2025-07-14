@@ -21,7 +21,22 @@ class ProbeController extends Controller
     public function storeSystemInfo(Request $request, string $organizationId, string $serverId): JsonResponse
     {
         try {
-            // 1. Validate request structure
+            // 1. Authenticate probe first
+            $organization = $this->authenticateProbe($request, $organizationId);
+            if (!$organization) {
+                return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
+            }
+
+            // 2. Handle encryption if present BEFORE validation
+            if ($request->input('encrypted', false)) {
+                $decryptedData = $organization->decryptData($request->input('data'));
+                if (!$decryptedData) {
+                    return $this->errorResponse('ENCRYPTION_FAILED', 'Failed to decrypt data', null, 412);
+                }
+                $request->merge($decryptedData);
+            }
+
+            // 3. Validate request structure AFTER decryption
             $validator = Validator::make($request->all(), [
                 'machine_name' => 'required|string|max:255',
                 'metrics' => 'required|array',
@@ -40,21 +55,6 @@ class ProbeController extends Controller
                     'server_id' => $serverId
                 ]);
                 return $this->errorResponse('INVALID_REQUEST', 'Invalid payload format', $validator->errors()->toArray(), 400);
-            }
-
-            // 2. Authenticate probe
-            $organization = $this->authenticateProbe($request, $organizationId);
-            if (!$organization) {
-                return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
-            }
-
-            // 3. Handle encryption if present
-            if ($request->input('encrypted', false)) {
-                $decryptedData = $organization->decryptData($request->input('data'));
-                if (!$decryptedData) {
-                    return $this->errorResponse('ENCRYPTION_FAILED', 'Failed to decrypt data', null, 412);
-                }
-                $request->merge($decryptedData);
             }
 
             // 4. Find or create server
@@ -102,7 +102,43 @@ class ProbeController extends Controller
     public function storeMetrics(Request $request, string $organizationId, string $serverId): JsonResponse
     {
         try {
-            // 1. Validate request structure
+            Log::info('Processing metrics request', [
+                'organization_id' => $organizationId,
+                'server_id' => $serverId,
+                'request_keys' => array_keys($request->all()),
+                'has_metrics' => $request->has('metrics'),
+                'metrics_count' => $request->has('metrics') ? count($request->input('metrics', [])) : 0
+            ]);
+
+            // 1. Authenticate probe first
+            $organization = $this->authenticateProbe($request, $organizationId);
+            if (!$organization) {
+                Log::warning('Metrics authentication failed', ['organization_id' => $organizationId]);
+                return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
+            }
+
+            // 2. Check plan limits
+            if (!$organization->canMakeApiRequest()) {
+                Log::warning('API rate limit exceeded', ['organization_id' => $organizationId]);
+                return $this->errorResponse('RATE_LIMITED', 'API request limit exceeded', null, 429);
+            }
+
+            // 3. Handle encryption if present BEFORE validation
+            if ($request->input('encrypted', false)) {
+                Log::info('Processing encrypted metrics data');
+                $decryptedData = $organization->decryptData($request->input('data'));
+                if (!$decryptedData) {
+                    Log::error('Failed to decrypt metrics data');
+                    return $this->errorResponse('ENCRYPTION_FAILED', 'Failed to decrypt data', null, 412);
+                }
+                $request->merge($decryptedData);
+                Log::info('Metrics data decrypted successfully', [
+                    'decrypted_keys' => array_keys($decryptedData),
+                    'metrics_count' => isset($decryptedData['metrics']) ? count($decryptedData['metrics']) : 0
+                ]);
+            }
+
+            // 4. Validate request structure AFTER decryption
             $validator = Validator::make($request->all(), [
                 'machine_name' => 'required|string|max:255',
                 'metrics' => 'required|array',
@@ -119,39 +155,33 @@ class ProbeController extends Controller
                 Log::warning('Invalid metrics payload', [
                     'errors' => $validator->errors(),
                     'organization_id' => $organizationId,
-                    'server_id' => $serverId
+                    'server_id' => $serverId,
+                    'request_data' => $request->all()
                 ]);
                 return $this->errorResponse('INVALID_REQUEST', 'Invalid payload format', $validator->errors()->toArray(), 400);
             }
 
-            // 2. Authenticate probe
-            $organization = $this->authenticateProbe($request, $organizationId);
-            if (!$organization) {
-                return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
-            }
-
-            // 3. Check plan limits
-            if (!$organization->canMakeApiRequest()) {
-                return $this->errorResponse('RATE_LIMITED', 'API request limit exceeded', null, 429);
-            }
-
-            // 4. Handle encryption if present
-            if ($request->input('encrypted', false)) {
-                $decryptedData = $organization->decryptData($request->input('data'));
-                if (!$decryptedData) {
-                    return $this->errorResponse('ENCRYPTION_FAILED', 'Failed to decrypt data', null, 412);
-                }
-                $request->merge($decryptedData);
-            }
+            Log::info('Metrics validation passed', [
+                'organization_id' => $organizationId,
+                'server_id' => $serverId
+            ]);
 
             // 5. Find server
             $server = $organization->servers()->where('id', $serverId)->first();
             if (!$server) {
+                Log::error('Server not found', ['server_id' => $serverId, 'organization_id' => $organizationId]);
                 return $this->errorResponse('NOT_FOUND', 'Server not found', null, 404);
             }
 
             // 6. Process metrics
             $metrics = $request->input('metrics', []);
+            Log::info('Processing metrics', [
+                'server_id' => $server->id,
+                'metrics_count' => count($metrics),
+                'metric_categories' => array_unique(array_column($metrics, 'category')),
+                'metric_names' => array_unique(array_column($metrics, 'name'))
+            ]);
+            
             $this->processRegularMetrics($server, $metrics);
 
             // 7. Update server status
@@ -326,18 +356,8 @@ class ProbeController extends Controller
     {
         foreach ($metrics as $metric) {
             if ($metric['category'] === 'system' && $metric['name'] === 'system_info') {
-                // Store system info in server model
+                // Store system info in server model ONLY (no need to store in metrics table)
                 $server->update(['system_info' => $metric['value']]);
-
-                // Also store as metric for history
-                Metric::create([
-                    'server_id' => $server->id,
-                    'category' => $metric['category'],
-                    'name' => $metric['name'],
-                    'metadata' => $metric['metadata'] ?? null,
-                    'value' => $metric['value'],
-                    'timestamp' => Carbon::parse($metric['timestamp']),
-                ]);
             }
         }
     }
@@ -347,11 +367,30 @@ class ProbeController extends Controller
      */
     private function processRegularMetrics(Server $server, array $metrics): void
     {
+        Log::info('Starting to process regular metrics', [
+            'server_id' => $server->id,
+            'metrics_count' => count($metrics)
+        ]);
+
         $metricsToInsert = [];
         $lastMetrics = $server->last_metrics ?? [];
         $now = now();
 
-        foreach ($metrics as $metric) {
+        foreach ($metrics as $index => $metric) {
+            Log::info("Processing metric {$index}", [
+                'category' => $metric['category'] ?? 'MISSING',
+                'name' => $metric['name'] ?? 'MISSING',
+                'has_value' => isset($metric['value']),
+                'timestamp' => $metric['timestamp'] ?? 'MISSING'
+            ]);
+
+            // Skip system_info metrics (they should be handled by system info endpoint)
+            if (isset($metric['category'], $metric['name']) && 
+                $metric['category'] === 'system' && $metric['name'] === 'system_info') {
+                Log::info('Skipping system_info metric in regular metrics');
+                continue;
+            }
+
             // Store metric in database
             $metricsToInsert[] = [
                 'server_id' => $server->id,
@@ -372,18 +411,41 @@ class ProbeController extends Controller
             ];
         }
 
+        Log::info('Metrics prepared for insertion', [
+            'metrics_to_insert_count' => count($metricsToInsert),
+            'last_metrics_keys' => array_keys($lastMetrics)
+        ]);
+
         // Bulk insert metrics
         if (!empty($metricsToInsert)) {
-            Metric::insert($metricsToInsert);
+            try {
+                Metric::insert($metricsToInsert);
+                Log::info('Metrics successfully inserted to database', [
+                    'inserted_count' => count($metricsToInsert)
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to insert metrics to database', [
+                    'error' => $e->getMessage(),
+                    'metrics_count' => count($metricsToInsert)
+                ]);
+                throw $e;
+            }
+        } else {
+            Log::warning('No metrics to insert');
         }
 
         // Update server's last_metrics
         $server->update(['last_metrics' => $lastMetrics]);
+        Log::info('Server last_metrics updated');
 
         // Cleanup old metrics (keep last 30 days)
-        $server->metrics()
+        $deletedCount = $server->metrics()
             ->where('timestamp', '<', now()->subDays(30))
             ->delete();
+        
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up old metrics', ['deleted_count' => $deletedCount]);
+        }
     }
 
     /**

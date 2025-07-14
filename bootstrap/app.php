@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'organization.access' => \App\Http\Middleware\OrganizationAccess::class,
             'organization.owner' => \App\Http\Middleware\OrganizationOwner::class,
             'has.organization' => \App\Http\Middleware\HasOrganization::class,
+            'gzip' => \App\Http\Middleware\HandleGzipDecompression::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### PHP/Laravel Development
+### PHP/Laravel Development (Web Application)
 - **Start development server**: `composer run dev` (includes Laravel serve, queue worker, logs, and Vite)
 - **Start with SSR**: `composer run dev:ssr`
 - **Run tests**: `composer run test` (includes config:clear and Pest tests)
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Database migrations**: `php artisan migrate`
 - **Seed database**: `php artisan db:seed`
 
-### Frontend Development
+### Frontend Development (Web Application)
 - **Start Vite dev server**: `npm run dev`
 - **Build assets**: `npm run build`
 - **Build with SSR**: `npm run build:ssr`
@@ -21,11 +21,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint JavaScript/TypeScript**: `npm run lint`
 - **Type checking**: `npm run types`
 
+### Go Development (Probe)
+- **Build probe**: `go build -o bin/monitorly-probe ./cmd/probe` (from probe/ directory)
+- **Run probe in development**: `go run ./cmd/probe -config config.yaml.example -skip-update-check`
+- **Optimized release build**: `export CGO_ENABLED=0 && go build -v -a -installsuffix cgo -trimpath -ldflags="-s -w" -o bin/monitorly-probe ./cmd/probe`
+- **Run all tests**: `go test ./...`
+- **Run tests with coverage**: `go test -v -coverprofile=coverage.out ./...`
+- **View coverage report**: `go tool cover -html=coverage.out`
+- **Format code**: `go fmt ./...`
+- **Tidy dependencies**: `go mod tidy`
+
 ### Testing
-- **Run all tests**: `composer run test` or `php artisan test`
+- **Run all web tests**: `composer run test` or `php artisan test`
 - **Run Pest tests directly**: `vendor/bin/pest`
 - **Feature tests**: Tests in `tests/Feature/`
 - **Unit tests**: Tests in `tests/Unit/`
+- **Run all probe tests**: `go test ./...` (from probe/ directory)
 
 ## Application Architecture
 
@@ -37,6 +48,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Testing**: Pest PHP testing framework
 - **Authentication**: Laravel's built-in auth with Sanctum
 - **Build Tool**: Vite with Laravel plugin
+- **Probe**: Go-based monitoring agent with system metric collection
 
 ### Key Models and Relationships
 - **User**: Has roles (admin/user), owns Organizations, belongs to multiple Organizations
@@ -57,6 +69,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **API Endpoints**: `/api/organizations/{org_id}/servers/{server_id}/metrics` for probe data
 - **Real-time Data**: Stored in `last_metrics` JSON field on Server model
 - **Authentication**: Bearer tokens + encryption keys for secure probe communication
+- **Probe Architecture**: Interface-based design with pluggable collectors and senders
+- **Probe Location**: `probe/` directory with complete Go application
 
 ### Frontend Architecture
 - **Layout System**: Multiple layouts (app, admin, auth, settings) in `resources/js/layouts/`
@@ -123,6 +137,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Configuration Management**: Automatic config updates via probe API
 - **Metrics Collection**: Real-time system monitoring with configurable intervals
 - **Error Handling**: Comprehensive error codes and fallback mechanisms
+- **Dual Architecture**: Web application in `web/` and Go probe in `probe/`
 
 ### Multi-tenancy
 - **Organization Isolation**: All resources scoped to organizations
@@ -135,3 +150,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Plan Management**: Subscription tier configuration
 - **Organization Oversight**: View and manage all organizations
 - **Role System**: Dynamic role/permission management for organizations
+
+## Probe Development
+
+### Go Probe Architecture
+- **Entry Point**: `probe/cmd/probe/main.go` with CLI flags and signal handling
+- **Core Modules**:
+  - `internal/config/`: YAML configuration with hot-reload
+  - `internal/collector/`: Plugin-based metric collection system
+  - `internal/sender/`: HTTP API and file output with compression
+  - `internal/encryption/`: AES-256-GCM encryption for API payloads
+  - `internal/version/`: Auto-update system with GitHub releases
+- **System Collectors**: CPU, RAM, disk, services, user activity, login failures, ports
+- **Testing**: Comprehensive unit tests with ~80% coverage
+- **Dependencies**: Minimal external dependencies (gopsutil, yaml, fsnotify)
+
+### Probe Development Patterns
+- **Interface-Based Design**: `Collector` and `Sender` interfaces for extensibility
+- **Configuration-Driven**: YAML-based config with validation and defaults
+- **Goroutine Concurrency**: Separate goroutines for collectors and senders
+- **Hot-Reload**: Automatic configuration updates via filesystem watching
+- **Graceful Shutdown**: Context-based cancellation and signal handling
+
+### Probe API Integration
+- **Authentication**: Bearer token authentication for secure communication
+- **Endpoints**: `/api/{org_id}/servers/{server_id}/metrics` and `/info`
+- **Data Format**: JSON with gzip compression and optional encryption
+- **Error Handling**: Exponential backoff, rate limiting, and fallback mechanisms
+- **Configuration Sync**: Automatic config updates from API responses
