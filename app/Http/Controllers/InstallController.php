@@ -58,7 +58,7 @@ echo "📡 Serveur: {$baseUrl}"
 
 # 1. Installer la probe Monitorly
 echo "📦 Installation de la probe..."
-if ! curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash; then
+if ! curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/scripts/release.sh | bash; then
     echo "❌ Erreur lors de l'installation de la probe"
     exit 1
 fi
@@ -144,7 +144,7 @@ echo "📡 Serveur: {$baseUrl}"
 
 # 1. Installer la probe Monitorly
 echo "📦 Installation de la probe..."
-if ! curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/install.sh | bash; then
+if ! curl -sSL https://raw.githubusercontent.com/monitorly-app/probe/master/scripts/release.sh | bash; then
     echo "❌ Erreur lors de l'installation de la probe"
     exit 1
 fi
