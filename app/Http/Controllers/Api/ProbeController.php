@@ -117,11 +117,8 @@ class ProbeController extends Controller
                 return $this->errorResponse('UNAUTHORIZED', 'Invalid authentication token', null, 401);
             }
 
-            // 2. Check plan limits
-            if (!$organization->canMakeApiRequest()) {
-                Log::warning('API rate limit exceeded', ['organization_id' => $organizationId]);
-                return $this->errorResponse('RATE_LIMITED', 'API request limit exceeded', null, 429);
-            }
+            // 2. Check plan limits - REMOVED: We don't need API request counting
+            // Rate limiting should be based on collection intervals, not request count
 
             // 3. Handle encryption if present BEFORE validation
             if ($request->input('encrypted', false)) {

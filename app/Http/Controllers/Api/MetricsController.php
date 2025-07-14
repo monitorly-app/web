@@ -60,10 +60,8 @@ class MetricsController extends Controller
                 return response()->json(['error' => 'Invalid organization or API key'], 401);
             }
 
-            // 4. Vérifier les limites du plan
-            if (!$organization->canMakeApiRequest()) {
-                return response()->json(['error' => 'API request limit exceeded'], 429);
-            }
+            // 4. Check plan limits - REMOVED: We don't need API request counting
+            // Rate limiting should be based on collection intervals, not request count
 
             // 5. Trouver ou créer le serveur
             $machineName = $request->input('machine_name');
